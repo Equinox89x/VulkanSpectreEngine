@@ -1,45 +1,29 @@
-#pragma once
-#include "VulkanBase/VulkanWindow.h"
-#include "VulkanBase/VulkanDevice.h"
-#include "Scene/GameObject.h"
-#include "Camera/Camera.h"
-#include "Input/InputHandler.h"
-#include "VulkanBase/VulkanRenderer.h"
 
-// std includes
-#include <memory>
-#include <vector>
-#include <unordered_map>
+#include "../VR/Headset.h"
+#include "../VulkanBase/VulkanWindow.h"
 
-namespace Spectre
+class Controllers;
+struct GameObject;
+
+constexpr float flySpeedMultiplier = 2.5f;
+class App		final
 {
-	class App final
-	{
-	public:
-		static constexpr int m_WIDTH{ 800 };
-		static constexpr int m_HEIGHT{ 600 };
+public:
+	static constexpr int m_WIDTH{ 800 };
+	static constexpr int m_HEIGHT{ 600 };
 
-		App() { CreateGameObjects(); };
-		~App() = default;
-		App(const App&) = delete;
-		App(App&&) = delete;
-		App& operator=(const App&) = delete;
-		App& operator=(App&&) = delete;
+	App(){};
+	~App();
+	App(const App&) = delete;
+	App(App&&) = delete;
+	App& operator=(const App&) = delete;
+	App& operator=(App&&) = delete;
 
-		void Run();
+	int Run();
 
-	private:
-		void CreateGameObjects();
-
-		VulkanWindow m_Window{ m_WIDTH, m_HEIGHT, "Spectre Engine" };
-		VulkanDevice m_Device{ m_Window };
-
-		VulkanRenderer m_Renderer{ m_Window, m_Device };
-
-		std::vector<GameObject> m_GameObjects;
-		std::vector<GameObject> m_GameObjects2D;
-
-		Camera camera{};
-		InputHandler inputController{};
-	};
-}
+private:
+	void UpdateControllers(Headset& headset, Controllers& controllers, GameObject& handModelRight, GameObject& handModelLeft);
+	void UpdateObjects(float time, GameObject& bikeModel);
+	int	 PresentImage(VulkanWindow& window, const uint32_t& swapchainImageIndex, VulkanRenderer& renderer);
+	void UpdateGameObjects(std::vector<GameObject*>& gameObjects, Headset& headset);
+};

@@ -1,423 +1,561 @@
 #include "VulkanDevice.h"
 
-// std headers
-#include <cstring>
-#include <iostream>
-#include <set>
-#include <unordered_set>
+#include <glfw/glfw3.h>
 
-namespace Spectre {
-    VulkanDevice::VulkanDevice(VulkanWindow& window) : 
-        m_Window( window )
+#ifdef DEBUG
+	#include <array>
+#endif
+#include "../Misc/Utils.h"
+
+VulkanDevice::VulkanDevice()
+{
+	// Initialize GLFW
+	if (!glfwInit())
 	{
-        CreateInstance();
-        CreateSurface();
-        PickPhysicalDevice();
-        CreateLogicalDevice();
-        CreateCommandPool();
-    }
+		utils::ThrowError(EError::GenericGLFW);
+	}
 
-    VulkanDevice::~VulkanDevice()
+	if (!glfwVulkanSupported())
 	{
-        vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
-        vkDestroyDevice(m_Device, nullptr);
+		utils::ThrowError(EError::VulkanNotSupported);
+	}
 
-        vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
-        vkDestroyInstance(m_Instance, nullptr);
-    }
-
-    void VulkanDevice::CreateInstance()
+	// Get all supported OpenXR instance extensions
+	std::vector<XrExtensionProperties> supportedOpenXRInstanceExtensions;
 	{
-        VkApplicationInfo appInfo = {};
-        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "SpectreEngine App";
-        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.pEngineName = "Spectre";
-        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.apiVersion = VK_API_VERSION_1_0;
+		uint32_t instanceExtensionCount;
+		XrResult result = xrEnumerateInstanceExtensionProperties(nullptr, 0u, &instanceExtensionCount, nullptr);
+		if (XR_FAILED(result))
+		{
+			utils::ThrowError(EError::GenericOpenXR);
+		}
 
-        auto extensions = GetRequiredExtensions();
-        VkInstanceCreateInfo createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        createInfo.pApplicationInfo = &appInfo;
-        createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-        createInfo.ppEnabledExtensionNames = extensions.data();
-        createInfo.enabledLayerCount = 0;
-        createInfo.pNext = nullptr;
+		supportedOpenXRInstanceExtensions.resize(instanceExtensionCount);
+		for (XrExtensionProperties& extensionProperty : supportedOpenXRInstanceExtensions)
+		{
+			extensionProperty.type = XR_TYPE_EXTENSION_PROPERTIES;
+			extensionProperty.next = nullptr;
+		}
 
-        if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) 
-        {
-            throw std::runtime_error("failed to create instance!");
-        }
+		result = xrEnumerateInstanceExtensionProperties(nullptr, instanceExtensionCount, &instanceExtensionCount, supportedOpenXRInstanceExtensions.data());
+		if (XR_FAILED(result))
+		{
+			utils::ThrowError(EError::GenericOpenXR);
+		}
+	}
 
-        HasGlfwRequiredInstanceExtensions();
-    }
+	// Create an OpenXR instance
+	CreateXRInstance(supportedOpenXRInstanceExtensions);
 
-    void VulkanDevice::PickPhysicalDevice()
+	// Load the required OpenXR extension functions
+	if (!utils::LoadXrExtensionFunction(m_XrInstance, "xrGetVulkanInstanceExtensionsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&m_XrGetVulkanInstanceExtensionsKHR)))
 	{
-        uint32_t deviceCount = 0;
-        vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
-        if (deviceCount == 0) 
-        {
-            throw std::runtime_error("failed to find GPUs with Vulkan support!");
-        }
-        std::vector<VkPhysicalDevice> devices(deviceCount);
-        vkEnumeratePhysicalDevices(m_Instance, &deviceCount, devices.data());
+		utils::ThrowError(EError::FeatureNotSupported, "OpenXR extension function \"xrGetVulkanInstanceExtensionsKHR\"");
+	}
 
-        for (const auto& device : devices) 
-        {
-            if (IsDeviceSuitable(device)) {
-                m_PhysicalDevice = device;
-                break;
-            }
-        }
-
-        if (m_PhysicalDevice == VK_NULL_HANDLE) 
-        {
-            throw std::runtime_error("failed to find a suitable GPU!");
-        }
-
-        vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
-    }
-
-    void VulkanDevice::CreateLogicalDevice()
+	if (!utils::LoadXrExtensionFunction(m_XrInstance, "xrGetVulkanGraphicsDeviceKHR", reinterpret_cast<PFN_xrVoidFunction*>(&m_XrGetVulkanGraphicsDeviceKHR)))
 	{
-        QueueFamilyIndices indices = FindQueueFamilies(m_PhysicalDevice);
+		utils::ThrowError(EError::FeatureNotSupported, "OpenXR extension function \"xrGetVulkanGraphicsDeviceKHR\"");
+	}
 
-        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-        std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily, indices.presentFamily };
-
-        float queuePriority = 1.0f;
-        for (uint32_t queueFamily : uniqueQueueFamilies) 
-        {
-            VkDeviceQueueCreateInfo queueCreateInfo = {};
-            queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-            queueCreateInfo.queueFamilyIndex = queueFamily;
-            queueCreateInfo.queueCount = 1;
-            queueCreateInfo.pQueuePriorities = &queuePriority;
-            queueCreateInfos.push_back(queueCreateInfo);
-        }
-
-        VkPhysicalDeviceFeatures deviceFeatures = {};
-        deviceFeatures.samplerAnisotropy = VK_TRUE;
-
-        VkDeviceCreateInfo createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-        createInfo.pQueueCreateInfos = queueCreateInfos.data();
-        createInfo.pEnabledFeatures = &deviceFeatures;
-        createInfo.enabledExtensionCount = static_cast<uint32_t>(m_pDeviceExtensions.size());
-        createInfo.ppEnabledExtensionNames = m_pDeviceExtensions.data();
-        createInfo.enabledLayerCount = 0;
-
-        if (vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device) != VK_SUCCESS) 
-        {
-            throw std::runtime_error("failed to create logical device!");
-        }
-
-        vkGetDeviceQueue(m_Device, indices.graphicsFamily, 0, &m_GraphicsQueue);
-        vkGetDeviceQueue(m_Device, indices.presentFamily, 0, &m_PresentQueue);
-    }
-
-    void VulkanDevice::CreateCommandPool()
+	if (!utils::LoadXrExtensionFunction(m_XrInstance, "xrGetVulkanDeviceExtensionsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&m_XrGetVulkanDeviceExtensionsKHR)))
 	{
-        QueueFamilyIndices queueFamilyIndices = FindPhysicalQueueFamilies();
+		utils::ThrowError(EError::FeatureNotSupported, "OpenXR extension function \"xrGetVulkanDeviceExtensionsKHR\"");
+	}
 
-        VkCommandPoolCreateInfo poolInfo = {};
-        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily;
-        poolInfo.flags =
-            VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-
-        if (vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_CommandPool) != VK_SUCCESS) 
-        {
-            throw std::runtime_error("failed to create command pool!");
-        }
-    }
-
-    void VulkanDevice::CreateSurface() { m_Window.CreateSurface(m_Instance, &m_Surface); }
-
-    bool VulkanDevice::IsDeviceSuitable(VkPhysicalDevice device)
+	if (!utils::LoadXrExtensionFunction(m_XrInstance, "xrGetVulkanGraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&m_XrGetVulkanGraphicsRequirementsKHR)))
 	{
-        QueueFamilyIndices indices = FindQueueFamilies(device);
+		utils::ThrowError(EError::FeatureNotSupported, "OpenXR extension function \"xrGetVulkanGraphicsRequirementsKHR\"");
+	}
 
-        bool extensionsSupported = CheckDeviceExtensionSupport(device);
-
-        bool swapChainAdequate = false;
-        if (extensionsSupported) 
-        {
-            SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device);
-            swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-        }
-
-        VkPhysicalDeviceFeatures supportedFeatures;
-        vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
-
-        return indices.IsComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
-    }
-
-    void VulkanDevice::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+	// Get the system ID
+	XrSystemGetInfo systemGetInfo{ XR_TYPE_SYSTEM_GET_INFO };
+	systemGetInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
+	XrResult result = xrGetSystem(m_XrInstance, &systemGetInfo, &m_SystemId);
+	if (XR_FAILED(result))
 	{
-        createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-        createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        createInfo.pUserData = nullptr;  // Optional
-    }
+		utils::ThrowError(EError::HeadsetNotConnected);
+	}
 
-    std::vector<const char*> VulkanDevice::GetRequiredExtensions()
+	// Check the supported environment blend modes
+	CheckSupportedBlendMode(result);
+
+	// Get all supported Vulkan instance extensions
+	std::vector<VkExtensionProperties> supportedVulkanInstanceExtensions;
 	{
-        uint32_t glfwExtensionCount = 0;
-        const char** glfwExtensions;
-        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+		uint32_t instanceExtensionCount;
+		if (vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, nullptr) != VK_SUCCESS)
+		{
+			utils::ThrowError(EError::GenericVulkan);
+		}
 
-        std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-        return extensions;
-    }
+		supportedVulkanInstanceExtensions.resize(instanceExtensionCount);
+		if (vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, supportedVulkanInstanceExtensions.data()) != VK_SUCCESS)
+		{
+			utils::ThrowError(EError::GenericVulkan);
+		}
+	}
 
-    void VulkanDevice::HasGlfwRequiredInstanceExtensions()
+	// Get the required Vulkan instance extensions from GLFW
+	std::vector<const char*> vulkanInstanceExtensions;
 	{
-        uint32_t extensionCount = 0;
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-        std::vector<VkExtensionProperties> extensions(extensionCount);
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-    }
+		uint32_t	 requiredExtensionCount;
+		const char** buffer = glfwGetRequiredInstanceExtensions(&requiredExtensionCount);
+		if (!buffer)
+		{
+			utils::ThrowError(EError::GenericGLFW);
+		}
 
-    bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
+		for (uint32_t extensionIndex = 0u; extensionIndex < requiredExtensionCount; ++extensionIndex)
+		{
+			vulkanInstanceExtensions.push_back(buffer[extensionIndex]);
+		}
+	}
+
+	// Get the required Vulkan instance extensions from OpenXR and add them
+	AddOpenXRExtentions(result, vulkanInstanceExtensions);
+
+	// Check that all required Vulkan instance extensions are supported
+	for (const char* extension : vulkanInstanceExtensions)
 	{
-        uint32_t extensionCount;
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+		bool extensionSupported = false;
 
-        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,availableExtensions.data());
+		for (const VkExtensionProperties& supportedExtension : supportedVulkanInstanceExtensions)
+		{
+			if (strcmp(extension, supportedExtension.extensionName) == 0)
+			{
+				extensionSupported = true;
+				break;
+			}
+		}
 
-        std::set<std::string> requiredExtensions(m_pDeviceExtensions.begin(), m_pDeviceExtensions.end());
+		if (!extensionSupported)
+		{
+			std::stringstream s;
+			s << "Vulkan instance extension \"" << extension << "\"";
+			utils::ThrowError(EError::FeatureNotSupported, s.str());
+		}
+	}
 
-        for (const auto& extension : availableExtensions) 
-        {
-            requiredExtensions.erase(extension.extensionName);
-        }
+	// Create a Vulkan instance with all required extensions
+	CreateVulkanInstance(vulkanInstanceExtensions);
+}
 
-        return requiredExtensions.empty();
-    }
-
-    QueueFamilyIndices VulkanDevice::FindQueueFamilies(VkPhysicalDevice device)
+VulkanDevice::~VulkanDevice()
+{
+	// Clean up OpenXR
+	if (m_XrInstance)
 	{
-        QueueFamilyIndices indices;
+		xrDestroyInstance(m_XrInstance);
+	}
 
-        uint32_t queueFamilyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
-        int index = 0;
-        for (const auto& queueFamily : queueFamilies) 
-        {
-            if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) 
-            {
-                indices.graphicsFamily = index;
-                indices.graphicsFamilyHasValue = true;
-            }
-            VkBool32 presentSupport = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device, index, m_Surface, &presentSupport);
-            if (queueFamily.queueCount > 0 && presentSupport) {
-                indices.presentFamily = index;
-                indices.presentFamilyHasValue = true;
-            }
-            if (indices.IsComplete()) {
-                break;
-            }
-
-            index++;
-        }
-
-        return indices;
-    }
-
-    SwapChainSupportDetails VulkanDevice::QuerySwapChainSupport(VkPhysicalDevice device)
+	// Clean up Vulkan
+	if (m_Device)
 	{
-        SwapChainSupportDetails details;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_Surface, &details.capabilities);
+		vkDestroyDevice(m_Device, nullptr);
+	}
 
-        uint32_t formatCount;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_Surface, &formatCount, nullptr);
-
-        if (formatCount != 0) 
-        {
-            details.formats.resize(formatCount);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_Surface, &formatCount, details.formats.data());
-        }
-
-        uint32_t presentModeCount;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_Surface, &presentModeCount, nullptr);
-
-        if (presentModeCount != 0) 
-        {
-            details.presentModes.resize(presentModeCount);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(
-                device,
-                m_Surface,
-                &presentModeCount,
-                details.presentModes.data());
-        }
-        return details;
-    }
-
-    VkFormat VulkanDevice::FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+	if (m_VkInstance)
 	{
-        for (VkFormat format : candidates) 
-        {
-            VkFormatProperties props;
-            vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
+		vkDestroyInstance(m_VkInstance, nullptr);
+	}
+}
 
-            if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) 
-            {
-                return format;
-            }
-            else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) 
-            {
-                return format;
-            }
-        }
-        throw std::runtime_error("failed to find supported format!");
-    }
+void VulkanDevice::CheckSupportedBlendMode(XrResult& result)
+{
 
-    uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+	uint32_t environmentBlendModeCount;
+	result = xrEnumerateEnvironmentBlendModes(m_XrInstance, m_SystemId, Spectre::viewType, 0u, &environmentBlendModeCount, nullptr);
+	if (XR_FAILED(result))
 	{
-        VkPhysicalDeviceMemoryProperties memProperties;
-        vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memProperties);
-        for (uint32_t index = 0; index < memProperties.memoryTypeCount; index++) 
-        {
-            if ((typeFilter & (1 << index)) && (memProperties.memoryTypes[index].propertyFlags & properties) == properties) 
-            {
-                return index;
-            }
-        }
+		utils::ThrowError(EError::GenericOpenXR);
+	}
 
-        throw std::runtime_error("failed to find suitable memory type!");
-    }
-
-    void VulkanDevice::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+	std::vector<XrEnvironmentBlendMode> supportedEnvironmentBlendModes(environmentBlendModeCount);
+	result = xrEnumerateEnvironmentBlendModes(m_XrInstance, m_SystemId, Spectre::viewType, environmentBlendModeCount, &environmentBlendModeCount, supportedEnvironmentBlendModes.data());
+	if (XR_FAILED(result))
 	{
-        VkBufferCreateInfo bufferInfo{};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = size;
-        bufferInfo.usage = usage;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		utils::ThrowError(EError::GenericOpenXR);
+	}
 
-        if (vkCreateBuffer(m_Device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) 
-        {
-            throw std::runtime_error("failed to create vertex buffer!");
-        }
-
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(m_Device, buffer, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties);
-
-        if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) 
-        {
-            throw std::runtime_error("failed to allocate vertex buffer memory!");
-        }
-
-        vkBindBufferMemory(m_Device, buffer, bufferMemory, 0);
-    }
-
-    VkCommandBuffer VulkanDevice::BeginSingleTimeCommands()
+	bool modeFound = false;
+	for (const XrEnvironmentBlendMode& mode : supportedEnvironmentBlendModes)
 	{
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = m_CommandPool;
-        allocInfo.commandBufferCount = 1;
+		if (mode == Spectre::environmentBlendMode)
+		{
+			modeFound = true;
+			break;
+		}
+	}
 
-        VkCommandBuffer commandBuffer;
-        vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
-
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
-        return commandBuffer;
-    }
-
-    void VulkanDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+	if (!modeFound)
 	{
-        vkEndCommandBuffer(commandBuffer);
+		utils::ThrowError(EError::FeatureNotSupported, "Environment blend mode");
+	}
+}
 
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
+void VulkanDevice::CreateVulkanInstance(std::vector<const char*>& vulkanInstanceExtensions)
+{
 
-        vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(m_GraphicsQueue);
+	VkApplicationInfo applicationInfo{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
+	applicationInfo.apiVersion = VK_API_VERSION_1_3;
+	applicationInfo.applicationVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
+	applicationInfo.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
+	applicationInfo.pApplicationName = Spectre::applicationName.c_str();
+	applicationInfo.pEngineName = Spectre::engineName.c_str();
 
-        vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
-    }
+	VkInstanceCreateInfo instanceCreateInfo{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
+	instanceCreateInfo.pApplicationInfo = &applicationInfo;
+	instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(vulkanInstanceExtensions.size());
+	instanceCreateInfo.ppEnabledExtensionNames = vulkanInstanceExtensions.data();
 
-    void VulkanDevice::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+	if (vkCreateInstance(&instanceCreateInfo, nullptr, &m_VkInstance) != VK_SUCCESS)
 	{
-        VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+		utils::ThrowError(EError::GenericVulkan);
+	}
+}
 
-        VkBufferCopy copyRegion{};
-        copyRegion.srcOffset = 0;  // Optional
-        copyRegion.dstOffset = 0;  // Optional
-        copyRegion.size = size;
-        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+void VulkanDevice::AddOpenXRExtentions(XrResult& result, std::vector<const char*>& vulkanInstanceExtensions)
+{
 
-        EndSingleTimeCommands(commandBuffer);
-    }
-
-    void VulkanDevice::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount)
+	uint32_t count;
+	result = m_XrGetVulkanInstanceExtensionsKHR(m_XrInstance, m_SystemId, 0u, &count, nullptr);
+	if (XR_FAILED(result))
 	{
-        VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+		utils::ThrowError(EError::GenericOpenXR);
+	}
 
-        VkBufferImageCopy region{};
-        region.bufferOffset = 0;
-        region.bufferRowLength = 0;
-        region.bufferImageHeight = 0;
-
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = layerCount;
-
-        region.imageOffset = { 0, 0, 0 };
-        region.imageExtent = { width, height, 1 };
-
-        vkCmdCopyBufferToImage( commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-        EndSingleTimeCommands(commandBuffer);
-    }
-
-    void VulkanDevice::CreateImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+	std::string buffer;
+	buffer.resize(count);
+	result = m_XrGetVulkanInstanceExtensionsKHR(m_XrInstance, m_SystemId, count, &count, buffer.data());
+	if (XR_FAILED(result))
 	{
-        if (vkCreateImage(m_Device, &imageInfo, nullptr, &image) != VK_SUCCESS) 
-        {
-            throw std::runtime_error("failed to create image!");
-        }
+		utils::ThrowError(EError::GenericOpenXR);
+	}
 
-        VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(m_Device, image, &memRequirements);
+	const std::vector<const char*> instanceExtensions = utils::UnpackExtensionString(buffer);
+	for (const char* extension : instanceExtensions)
+	{
+		vulkanInstanceExtensions.push_back(extension);
+	}
+}
 
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties);
+void VulkanDevice::CreateXRInstance(std::vector<XrExtensionProperties>& supportedOpenXRInstanceExtensions)
+{
+	XrApplicationInfo applicationInfo;
+	applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+	applicationInfo.applicationVersion = static_cast<uint32_t>(XR_MAKE_VERSION(0, 1, 0));
+	applicationInfo.engineVersion = static_cast<uint32_t>(XR_MAKE_VERSION(0, 1, 0));
 
-        if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) 
-        {
-            throw std::runtime_error("failed to allocate image memory!");
-        }
+	memcpy(applicationInfo.applicationName, Spectre::applicationName.data(), Spectre::applicationName.length() + 1u);
+	memcpy(applicationInfo.engineName, Spectre::engineName.data(), Spectre::engineName.length() + 1u);
 
-        if (vkBindImageMemory(m_Device, image, imageMemory, 0) != VK_SUCCESS) 
-        {
-            throw std::runtime_error("failed to bind image memory!");
-        }
-    }
-}  // namespace Spectre
+	std::vector<const char*> extensions = { XR_KHR_VULKAN_ENABLE_EXTENSION_NAME };
+
+	// Check that all OpenXR instance extensions are supported
+	for (const char* extension : extensions)
+	{
+		bool extensionSupported = false;
+		for (const XrExtensionProperties& supportedExtension : supportedOpenXRInstanceExtensions)
+		{
+			if (strcmp(extension, supportedExtension.extensionName) == 0)
+			{
+				extensionSupported = true;
+				break;
+			}
+		}
+
+		if (!extensionSupported)
+		{
+			std::stringstream s;
+			s << "OpenXR instance extension \"" << extension << "\"";
+			utils::ThrowError(EError::FeatureNotSupported, s.str());
+		}
+	}
+
+	XrInstanceCreateInfo instanceCreateInfo{ XR_TYPE_INSTANCE_CREATE_INFO };
+	instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+	instanceCreateInfo.enabledExtensionNames = extensions.data();
+	instanceCreateInfo.applicationInfo = applicationInfo;
+	const XrResult result = xrCreateInstance(&instanceCreateInfo, &m_XrInstance);
+	if (XR_FAILED(result))
+	{
+		utils::ThrowError(EError::HeadsetNotConnected);
+	}
+}
+
+bool VulkanDevice::CreateXRDevice(VkSurfaceKHR mirrorSurface)
+{
+	// Retrieve the physical device from OpenXR
+	XrResult result = m_XrGetVulkanGraphicsDeviceKHR(m_XrInstance, m_SystemId, m_VkInstance, &m_PhysicalDevice);
+	if (XR_FAILED(result))
+	{
+		utils::ThrowError(EError::GenericOpenXR);
+		return false;
+	}
+
+	// Pick the draw queue family index
+	FindDrawQueueFamilyIndex();
+
+	// Pick the present queue family index
+	GetPresentQueueFamilyIndex(mirrorSurface);
+
+	// Get all supported Vulkan device extensions
+	std::vector<VkExtensionProperties> supportedVulkanDeviceExtensions;
+	{
+		uint32_t deviceExtensionCount;
+		if (vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &deviceExtensionCount, nullptr) != VK_SUCCESS)
+		{
+			utils::ThrowError(EError::GenericVulkan);
+			return false;
+		}
+
+		supportedVulkanDeviceExtensions.resize(deviceExtensionCount);
+		if (vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &deviceExtensionCount, supportedVulkanDeviceExtensions.data()) != VK_SUCCESS)
+		{
+			utils::ThrowError(EError::GenericVulkan);
+			return false;
+		}
+	}
+
+	// Get the required Vulkan device extensions from OpenXR
+	std::vector<const char*> vulkanDeviceExtensions;
+	{
+		uint32_t count;
+		result = m_XrGetVulkanDeviceExtensionsKHR(m_XrInstance, m_SystemId, 0u, &count, nullptr);
+		if (XR_FAILED(result))
+		{
+			utils::ThrowError(EError::GenericOpenXR);
+			return false;
+		}
+
+		std::string buffer;
+		buffer.resize(count);
+		result = m_XrGetVulkanDeviceExtensionsKHR(m_XrInstance, m_SystemId, count, &count, buffer.data());
+		if (XR_FAILED(result))
+		{
+			utils::ThrowError(EError::GenericOpenXR);
+			return false;
+		}
+
+		vulkanDeviceExtensions = utils::UnpackExtensionString(buffer);
+	}
+
+	// Add the required swapchain extension for mirror view
+	vulkanDeviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+	// Check that all Vulkan device extensions are supported
+	HandleExtentionSupportCheck(vulkanDeviceExtensions, supportedVulkanDeviceExtensions);
+
+	// Create a device
+	CreateDevice(vulkanDeviceExtensions);
+
+	// Check the graphics requirements for Vulkan
+	XrGraphicsRequirementsVulkanKHR graphicsRequirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN_KHR };
+	result = m_XrGetVulkanGraphicsRequirementsKHR(m_XrInstance, m_SystemId, &graphicsRequirements);
+	if (XR_FAILED(result))
+	{
+		utils::ThrowError(EError::GenericOpenXR);
+		return false;
+	}
+
+	// Retrieve the queues
+	vkGetDeviceQueue(m_Device, m_DrawQueueFamilyIndex, 0u, &m_DrawQueue);
+	if (!m_DrawQueue)
+	{
+		utils::ThrowError(EError::GenericVulkan);
+		return false;
+	}
+
+	vkGetDeviceQueue(m_Device, m_PresentQueueFamilyIndex, 0u, &m_PresentQueue);
+	if (!m_PresentQueue)
+	{
+		utils::ThrowError(EError::GenericVulkan);
+		return false;
+	}
+
+	return true;
+}
+
+bool VulkanDevice::HandleExtentionSupportCheck(std::vector<const char*>& vulkanDeviceExtensions, std::vector<VkExtensionProperties>& supportedVulkanDeviceExtensions)
+{
+
+	for (const char* extension : vulkanDeviceExtensions)
+	{
+		bool extensionSupported = false;
+		for (const VkExtensionProperties& supportedExtension : supportedVulkanDeviceExtensions)
+		{
+			if (strcmp(extension, supportedExtension.extensionName) == 0)
+			{
+				extensionSupported = true;
+				break;
+			}
+		}
+
+		if (!extensionSupported)
+		{
+			std::stringstream s;
+			s << "Vulkan device extension \"" << extension << "\"";
+			utils::ThrowError(EError::FeatureNotSupported, s.str());
+			return false;
+		}
+	}
+	return true;
+}
+
+bool VulkanDevice::CreateDevice(std::vector<const char*>& vulkanDeviceExtensions)
+{
+
+	// Retrieve the physical device properties
+	VkPhysicalDeviceProperties physicalDeviceProperties;
+	vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
+	m_UniformBufferOffsetAlignment = physicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+
+	// Determine the best supported multisample count, up to 4x MSAA
+	const VkSampleCountFlags sampleCountFlags = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+	if (sampleCountFlags & VK_SAMPLE_COUNT_4_BIT)
+	{
+		m_MultisampleCount = VK_SAMPLE_COUNT_4_BIT;
+	}
+	else if (sampleCountFlags & VK_SAMPLE_COUNT_2_BIT)
+	{
+		m_MultisampleCount = VK_SAMPLE_COUNT_2_BIT;
+	}
+
+	// Verify that the required physical device features are supported
+	VkPhysicalDeviceFeatures physicalDeviceFeatures;
+	vkGetPhysicalDeviceFeatures(m_PhysicalDevice, &physicalDeviceFeatures);
+	if (!physicalDeviceFeatures.shaderStorageImageMultisample)
+	{
+		utils::ThrowError(EError::FeatureNotSupported, "Vulkan physical device feature \"shaderStorageImageMultisample\"");
+		return false;
+	}
+
+	VkPhysicalDeviceFeatures2		  physicalDeviceFeatures2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+	VkPhysicalDeviceMultiviewFeatures physicalDeviceMultiviewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
+	physicalDeviceFeatures2.pNext = &physicalDeviceMultiviewFeatures;
+	vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &physicalDeviceFeatures2);
+	if (!physicalDeviceMultiviewFeatures.multiview)
+	{
+		utils::ThrowError(EError::FeatureNotSupported, "Vulkan physical device feature \"multiview\"");
+		return false;
+	}
+
+	physicalDeviceFeatures.shaderStorageImageMultisample = VK_TRUE; // Needed for some OpenXR implementations
+	physicalDeviceMultiviewFeatures.multiview = VK_TRUE;			// Needed for stereo rendering
+
+	constexpr float queuePriority = 1.0f;
+
+	std::vector<VkDeviceQueueCreateInfo> deviceQueueCreateInfos;
+
+	VkDeviceQueueCreateInfo deviceQueueCreateInfo{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+	deviceQueueCreateInfo.queueFamilyIndex = m_DrawQueueFamilyIndex;
+	deviceQueueCreateInfo.queueCount = 1u;
+	deviceQueueCreateInfo.pQueuePriorities = &queuePriority;
+	deviceQueueCreateInfos.push_back(deviceQueueCreateInfo);
+
+	if (m_DrawQueueFamilyIndex != m_PresentQueueFamilyIndex)
+	{
+		deviceQueueCreateInfo.queueFamilyIndex = m_PresentQueueFamilyIndex;
+		deviceQueueCreateInfos.push_back(deviceQueueCreateInfo);
+	}
+
+	VkDeviceCreateInfo deviceCreateInfo{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
+	deviceCreateInfo.pNext = &physicalDeviceMultiviewFeatures;
+	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(vulkanDeviceExtensions.size());
+	deviceCreateInfo.ppEnabledExtensionNames = vulkanDeviceExtensions.data();
+	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
+	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(deviceQueueCreateInfos.size());
+	deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfos.data();
+	if (vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device) != VK_SUCCESS)
+	{
+		utils::ThrowError(EError::GenericVulkan);
+		return false;
+	}
+
+	return true;
+}
+
+bool VulkanDevice::GetPresentQueueFamilyIndex(const VkSurfaceKHR& mirrorSurface)
+{
+
+	// Retrieve the queue families
+	std::vector<VkQueueFamilyProperties> queueFamilies;
+	uint32_t							 queueFamilyCount = 0u;
+	vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, nullptr);
+
+	queueFamilies.resize(queueFamilyCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, queueFamilies.data());
+
+	bool presentQueueFamilyIndexFound = false;
+	for (size_t queueFamilyIndexCandidate = 0u; queueFamilyIndexCandidate < queueFamilies.size(); ++queueFamilyIndexCandidate)
+	{
+		const VkQueueFamilyProperties& queueFamilyCandidate = queueFamilies.at(queueFamilyIndexCandidate);
+
+		// Check that the queue family includes actual queues
+		if (queueFamilyCandidate.queueCount == 0u)
+		{
+			continue;
+		}
+
+		// Check the queue family for presenting support
+		VkBool32 presentSupport = false;
+		if (vkGetPhysicalDeviceSurfaceSupportKHR(m_PhysicalDevice, static_cast<uint32_t>(queueFamilyIndexCandidate), mirrorSurface, &presentSupport) != VK_SUCCESS)
+		{
+			continue;
+		}
+
+		if (!presentQueueFamilyIndexFound && presentSupport)
+		{
+			m_PresentQueueFamilyIndex = static_cast<uint32_t>(queueFamilyIndexCandidate);
+			presentQueueFamilyIndexFound = true;
+			break;
+		}
+	}
+
+	if (!presentQueueFamilyIndexFound)
+	{
+		utils::ThrowError(EError::FeatureNotSupported, "Present queue family index");
+		return false;
+	}
+	return true;
+}
+
+bool VulkanDevice::FindDrawQueueFamilyIndex()
+{
+
+	// Retrieve the queue families
+	std::vector<VkQueueFamilyProperties> queueFamilies;
+	uint32_t							 queueFamilyCount;
+	vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, nullptr);
+
+	queueFamilies.resize(queueFamilyCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, queueFamilies.data());
+
+	bool drawQueueFamilyIndexFound = false;
+	for (size_t queueFamilyIndexCandidate = 0u; queueFamilyIndexCandidate < queueFamilies.size(); ++queueFamilyIndexCandidate)
+	{
+		const VkQueueFamilyProperties& queueFamilyCandidate = queueFamilies.at(queueFamilyIndexCandidate);
+
+		// Check that the queue family includes actual queues
+		if (queueFamilyCandidate.queueCount == 0u)
+		{
+			continue;
+		}
+
+		// Check the queue family for drawing support
+		if (queueFamilyCandidate.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+		{
+			m_DrawQueueFamilyIndex = static_cast<uint32_t>(queueFamilyIndexCandidate);
+			drawQueueFamilyIndexFound = true;
+			break;
+		}
+	}
+
+	if (!drawQueueFamilyIndexFound)
+	{
+		utils::ThrowError(EError::FeatureNotSupported, "Graphics queue family index");
+		return false;
+	}
+	return true;
+}

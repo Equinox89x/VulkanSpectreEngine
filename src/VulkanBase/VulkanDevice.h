@@ -1,86 +1,65 @@
 #pragma once
-#include "VulkanWindow.h"
 
-// std lib headers
-#include <string>
+#include <cstring>
+#include <iostream>
+#include <sstream>
 #include <vector>
+#include <vulkan/vulkan.h>
 
-namespace Spectre {
+#define XR_USE_GRAPHICS_API_VULKAN
+#include <openxr/openxr_platform.h>
 
-    struct SwapChainSupportDetails {
-        VkSurfaceCapabilitiesKHR capabilities;
-        std::vector<VkSurfaceFormatKHR> formats;
-        std::vector<VkPresentModeKHR> presentModes;
-    };
+namespace Spectre
+{
+	constexpr XrViewConfigurationType viewType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+	constexpr XrEnvironmentBlendMode  environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+} // namespace
 
-    struct QueueFamilyIndices {
-        uint32_t graphicsFamily;
-        uint32_t presentFamily;
-        bool graphicsFamilyHasValue = false;
-        bool presentFamilyHasValue = false;
-        bool IsComplete() { return graphicsFamilyHasValue && presentFamilyHasValue; }
-    };
+class VulkanDevice final
+{
+public:
+	VulkanDevice();
+	~VulkanDevice();
 
-    class VulkanDevice final
-	{
-    public:
-        explicit VulkanDevice(VulkanWindow& window);
-        ~VulkanDevice();
-        VulkanDevice(const VulkanDevice&) = delete;
-        void operator=(const VulkanDevice&) = delete;
-        VulkanDevice(VulkanDevice&&) = delete;
-        VulkanDevice& operator=(VulkanDevice&&) = delete;
+	bool CreateXRDevice(VkSurfaceKHR mirrorSurface);
 
-        VkCommandPool GetCommandPool() { return m_CommandPool; }
-        VkDevice GetDevice() { return m_Device; }
-        VkSurfaceKHR Surface() { return m_Surface; }
-        VkQueue GraphicsQueue() { return m_GraphicsQueue; }
-        VkQueue PresentQueue() { return m_PresentQueue; }
+	void					Sync() const { vkDeviceWaitIdle(m_Device); }
+	XrViewConfigurationType GetXrViewType() const { return Spectre::viewType; }
+	XrInstance				GetXrInstance() const { return m_XrInstance; }
+	XrSystemId				GetXrSystemId() const { return m_SystemId; }
+	VkInstance				GetVkInstance() const { return m_VkInstance; }
+	VkPhysicalDevice		GetVkPhysicalDevice() const { return m_PhysicalDevice; }
+	uint32_t				GetVkDrawQueueFamilyIndex() const { return m_DrawQueueFamilyIndex; }
+	VkDevice				GetVkDevice() const { return m_Device; }
+	VkQueue					GetVkDrawQueue() const { return m_DrawQueue; }
+	VkQueue					GetVkPresentQueue() const { return m_PresentQueue; }
+	VkDeviceSize			GetUniformBufferOffsetAlignment() const { return m_UniformBufferOffsetAlignment; }
+	VkSampleCountFlagBits	GetMultisampleCount() const { return m_MultisampleCount; }
 
-        SwapChainSupportDetails GetSwapChainSupport() { return QuerySwapChainSupport(m_PhysicalDevice); }
-        uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-        QueueFamilyIndices FindPhysicalQueueFamilies() { return FindQueueFamilies(m_PhysicalDevice); }
-        VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+private:
+	// Extension function pointers
+	PFN_xrGetVulkanInstanceExtensionsKHR   m_XrGetVulkanInstanceExtensionsKHR{ nullptr };
+	PFN_xrGetVulkanGraphicsDeviceKHR	   m_XrGetVulkanGraphicsDeviceKHR{ nullptr };
+	PFN_xrGetVulkanDeviceExtensionsKHR	   m_XrGetVulkanDeviceExtensionsKHR{ nullptr };
+	PFN_xrGetVulkanGraphicsRequirementsKHR m_XrGetVulkanGraphicsRequirementsKHR{ nullptr };
 
-        // Buffer Helper Functions
-        void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-        VkCommandBuffer BeginSingleTimeCommands();
-        void EndSingleTimeCommands(VkCommandBuffer commandBuffer);
-        void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-        void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
+	XrInstance m_XrInstance{ nullptr };
+	XrSystemId m_SystemId{ 0u };
 
-        void CreateImageWithInfo( const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	VkInstance			  m_VkInstance{ nullptr };
+	VkPhysicalDevice	  m_PhysicalDevice{ nullptr };
+	uint32_t			  m_DrawQueueFamilyIndex{ 0u }, m_PresentQueueFamilyIndex{ 0u };
+	VkDevice			  m_Device{ nullptr };
+	VkQueue				  m_DrawQueue{ nullptr }, m_PresentQueue{ nullptr };
+	VkDeviceSize		  m_UniformBufferOffsetAlignment{ 0u };
+	VkSampleCountFlagBits m_MultisampleCount{ VK_SAMPLE_COUNT_1_BIT };
 
-        VkPhysicalDeviceProperties properties;
-
-    private:
-        void CreateInstance();
-        void CreateSurface();
-        void PickPhysicalDevice();
-        void CreateLogicalDevice();
-        void CreateCommandPool();
-
-        // helper functions
-        bool IsDeviceSuitable(VkPhysicalDevice device);
-        std::vector<const char*> GetRequiredExtensions();
-        QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
-        void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-        void HasGlfwRequiredInstanceExtensions();
-        bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
-        SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
-
-        VkInstance m_Instance;
-        VkDebugUtilsMessengerEXT m_DebugMessenger;
-        VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
-        VulkanWindow& m_Window;
-        VkCommandPool m_CommandPool;
-
-        VkDevice m_Device;
-        VkSurfaceKHR m_Surface;
-        VkQueue m_GraphicsQueue;
-        VkQueue m_PresentQueue;
-
-        const std::vector<const char*> m_pDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-    };
-
-}  // namespace Spectre
+	void CreateVulkanInstance(std::vector<const char*>& vulkanInstanceExtensions);
+	void AddOpenXRExtentions(XrResult& result, std::vector<const char*>& vulkanInstanceExtensions);
+	void CreateXRInstance(std::vector<XrExtensionProperties>& supportedOpenXRInstanceExtensions);
+	bool CreateDevice(std::vector<const char*>& vulkanDeviceExtensions);
+	bool GetPresentQueueFamilyIndex(const VkSurfaceKHR& mirrorSurface);
+	bool FindDrawQueueFamilyIndex();
+	void CheckSupportedBlendMode(XrResult& result);
+	bool HandleExtentionSupportCheck(std::vector<const char*>& vulkanDeviceExtensions, std::vector<VkExtensionProperties>& supportedVulkanDeviceExtensions);
+};

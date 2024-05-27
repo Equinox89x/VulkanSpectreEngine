@@ -1,39 +1,58 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
-#include "GLFW/glfw3.h"
-#include <string>
+#include <vulkan/vulkan.h>
 
-namespace Spectre
+#include <glfw/glfw3.h>
+#include <vector>
+
+class VulkanDevice;
+struct GLFWwindow;
+class Headset;
+class VulkanRenderer;
+
+/*
+ * The mirror view class handles the creation, updating, resizing, and eventual closing of the desktop window that shows
+ * a copy of what is rendered into the headset. It depends on GLFW for handling the operating system, and Vulkan for the
+ * blitting into the window surface.
+ */
+class VulkanWindow final
 {
-	class VulkanWindow final
+public:
+	enum class RenderResult
 	{
-	public:
-		VulkanWindow(int width, int height, std::string name);
-		~VulkanWindow();
-		VulkanWindow(const VulkanWindow&) = delete;
-		VulkanWindow(VulkanWindow&&) = delete;
-		VulkanWindow& operator=(const VulkanWindow&) = delete;
-		VulkanWindow& operator=(VulkanWindow&&) = delete;
-
-		bool ShouldWindowClose() { return glfwWindowShouldClose(m_Window); }
-		VkExtent2D GetExtent() { return { static_cast<uint32_t>(m_Width), static_cast<uint32_t>(m_Height) }; }
-		bool WasWindowResized() { return m_FrameBufferResized; }
-		void ResetWindowResizedFlag() { m_FrameBufferResized = false; }
-		GLFWwindow* GetWindow() const { return m_Window; }
-
-		void CreateSurface(VkInstance instance, VkSurfaceKHR* surface);
-
-
-	private:
-		static void FrameBufferResizedCallback(GLFWwindow* window, int width, int height);
-		void InitWindow();
-
-		int m_Width;
-		int m_Height;
-		bool m_FrameBufferResized{ false };
-
-		std::string m_Name;
-		GLFWwindow* m_Window;
+		ThrowError, // An error occurred
+		Visible,	// Visible mirror view for normal rendering
+		Invisible	// Minimized window for example without rendering
 	};
-}
+
+	VulkanWindow(){};
+	VulkanWindow(const VulkanDevice* m_Device);
+	~VulkanWindow();
+
+	void OnWindowResize();
+	bool Connect(const Headset* headset, const VulkanRenderer* renderer);
+
+	RenderResult Render(uint32_t swapchainImageIndex);
+	void		 Present();
+
+	void		 ProcessWindowEvents() const { glfwPollEvents(); }
+	bool		 IsExitRequested() const { return static_cast<bool>(glfwWindowShouldClose(m_Window)); }
+	VkSurfaceKHR GetSurface() const { return m_Surface; }
+	GLFWwindow*	 GetWindow() const { return m_Window; }
+
+private:
+	const VulkanDevice*	  m_Device{ nullptr };
+	const Headset*		  m_Headset{ nullptr };
+	const VulkanRenderer* m_Renderer{ nullptr };
+	GLFWwindow*			  m_Window{ nullptr };
+
+	VkSurfaceKHR		 m_Surface{ nullptr };
+	VkSwapchainKHR		 m_Swapchain{ nullptr };
+	std::vector<VkImage> m_SwapchainImages;
+	VkExtent2D			 m_SwapchainResolution{ 0u, 0u };
+
+	uint32_t m_DestinationImageIndex{ 0u };
+	bool	 m_ResizeDetected{ false };
+
+	bool RecreateSwapchain();
+};

@@ -1,59 +1,58 @@
 #pragma once
-#include "VulkanBase/VulkanWindow.h"
-#include "VulkanBase/VulkanDevice.h"
-#include "VulkanBase/VulkanSwapChain.h"
 
-// std includes
-#include <memory>
+#include <glm/fwd.hpp>
+
+#include "VulkanPipeline.h"
+#include "VulkanRenderSystem.h"
+#include <array>
 #include <vector>
-#include <cassert>
+#include <vulkan/vulkan.h>
 
-namespace Spectre
+class VulkanDevice;
+class DataBuffer;
+class Headset;
+class MeshData;
+struct GameObject;
+struct Material;
+// class VulkanPipeline;
+
+class VulkanRenderer final
 {
-	class VulkanRenderer final
-	{
-	public:
+public:
+	VulkanRenderer(){};
+	VulkanRenderer(const VulkanDevice* m_Device, const Headset* m_Headset, const MeshData* meshData, const std::vector<Material*>& materials, const std::vector<GameObject*>& gameObjects);
+	~VulkanRenderer();
 
-		VulkanRenderer(VulkanWindow& window, VulkanDevice& device);
-		~VulkanRenderer();
-		VulkanRenderer(const VulkanRenderer&) = delete;
-		VulkanRenderer(VulkanRenderer&&) = delete;
-		VulkanRenderer& operator=(const VulkanRenderer&) = delete;
-		VulkanRenderer& operator=(VulkanRenderer&&) = delete;
+	void Render(const glm::mat4& cameraMatrix, size_t swapchainImageIndex, float time);
+	void submit(bool useSemaphores) const;
 
-		VkRenderPass GetRenderPass() const { return m_SwapChain->GetRenderPass(); }
-		float GetAspectRatio() const { return m_SwapChain->GetExtentAspectRatio(); }
-		bool IsFrameInProgress() const { return m_IsFrameStarted; }
-		VkCommandBuffer GetCurrentCommandBuffer() const
-		{
-			assert(m_IsFrameStarted && "Can't get command buffer.");
-			return m_CommandBuffers[m_CurrentFrameIndex];
-		}
+	VkCommandBuffer GetCurrentCommandBuffer() const { return m_RenderProcesses.at(m_CurrentRenderProcessIndex)->GetCommandBuffer(); }
+	VkSemaphore		GetCurrentDrawableSemaphore() const { return m_RenderProcesses.at(m_CurrentRenderProcessIndex)->GetDrawableSemaphore(); }
+	VkSemaphore		GetCurrentPresentableSemaphore() const { return m_RenderProcesses.at(m_CurrentRenderProcessIndex)->GetPresentableSemaphore(); }
 
-		VkCommandBuffer BeginFrame();
-		void EndFrame();
-		void BeginRenderPass(VkCommandBuffer commandBuffer);
-		void EndRenderPass(VkCommandBuffer commandBuffer);
+private:
+	const VulkanDevice* m_Device{ nullptr };
+	const Headset*		m_Headset{ nullptr };
 
-		int GetFrameIndex() const
-		{
-			assert(m_IsFrameStarted && "Frame not in progress.");
-			return m_CurrentFrameIndex;
-		}
+	VkCommandPool		  m_CommandPool{ nullptr };
+	VkDescriptorPool	  m_DescriptorPool{ nullptr };
+	VkDescriptorSetLayout m_DescriptorSetLayout{ nullptr };
 
+	std::vector<VulkanRenderSystem*> m_RenderProcesses;
+	VkPipelineLayout				 m_PipelineLayout{ nullptr };
+	DataBuffer*						 m_VertexIndexBuffer{ nullptr };
 
-	private:
-		VulkanWindow& m_Window;
-		VulkanDevice& m_Device;
-		std::unique_ptr<VulkanSwapChain> m_SwapChain;
-		std::vector<VkCommandBuffer> m_CommandBuffers;
+	// VulkanPipeline *m_GridPipeline{ nullptr }, *m_DiffusePipeline{ nullptr }, *m_2DPipeline{ nullptr };
+	std::vector<VulkanPipeline*> m_Pipelines;
 
-		uint32_t m_CurrentImageIndex;
-		int m_CurrentFrameIndex{ 0 };
-		bool m_IsFrameStarted{false};
+	std::vector<GameObject*> m_GameObjects;
+	std::vector<Material*>	 m_Materials;
 
-		void CreateCommandBuffers();
-		void FreeCommandBuffers();
-		void RecreateSwapChain();
-	};
-}
+	size_t m_IndexOffset{ 0u };
+	size_t m_CurrentRenderProcessIndex{ 0u };
+
+	void			CreateVertexIndexBuffer(const MeshData* meshData, const VulkanDevice* m_Device);
+	void			DrawModels(VulkanRenderSystem* renderProcess, const VkCommandBuffer& commandBuffer);
+	void			UpdateUniformBuffers(VulkanRenderSystem* renderProcess, const glm::mat4& cameraMatrix);
+	VulkanPipeline* FindExistingPipeline(const std::string& vertShader, const std::string& fragShader, const Spectre::PipelineMaterialPayload& pipelineData);
+};

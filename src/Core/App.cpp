@@ -1,90 +1,180 @@
 #include "App.h"
-#include "VulkanBase/VulkanRenderSystem.h"
-
-// std
-#include <stdexcept>
+#include "../Input/InputHandler.h"
+#include "../Misc/Utils.h"
+#include "../Scene/GameData.h"
+#include "../Scene/MeshData.h"
+#include "../VR/Controllers.h"
+#include "../VulkanBase/VulkanDevice.h"
+#include "../VulkanBase/VulkanRenderer.h"
+// #include "../VulkanBase/VulkanWindow.h"
 #include <chrono>
-#include <array>
-#include <cassert>
+#include <iostream>
 
-//library
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/constants.hpp>
-
-namespace Spectre
+App::~App()
 {
-	void App::Run()
+	// for (auto model : m_Models)
+	//{
+	//     delete model;
+	// }
+	// m_Models.clear();
+}
+
+int App::Run()
+{
+	VulkanDevice device;
+	VulkanWindow window(&device);
+
+	device.CreateXRDevice(window.GetSurface());
+
+	Headset		headset(&device);
+	Controllers controllers(device.GetXrInstance(), headset.GetXrSession());
+
+	Model				gridModel, ruinsModel, carModelLeft, carModelRight, beetleModel, bikeModel, handModelLeft, handModelRight, planeModelLeft, planeModelRight, squareModel;
+	std::vector<Model*> models = { &gridModel, &ruinsModel, &carModelLeft, &carModelRight, &beetleModel, &bikeModel, &handModelLeft, &handModelRight, &planeModelLeft, &planeModelRight, &squareModel };
+
+	Material gridMaterial, diffuseMaterial, transparentMaterial, material2D = {};
+	gridMaterial.vertShaderName = "shaders/Grid.vert.spv";
+	gridMaterial.fragShaderName = "shaders/Grid.frag.spv";
+	gridMaterial.dynamicUniformData.colorMultiplier = glm::vec4(1.0f);
+
+	diffuseMaterial.vertShaderName = "shaders/Diffuse.vert.spv";
+	diffuseMaterial.fragShaderName = "shaders/Diffuse.frag.spv";
+	diffuseMaterial.dynamicUniformData.colorMultiplier = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+	transparentMaterial.vertShaderName = "shaders/DiffuseTransparent.vert.spv";
+	transparentMaterial.fragShaderName = "shaders/DiffuseTransparent.frag.spv";
+	transparentMaterial.dynamicUniformData.colorMultiplier = glm::vec4(0.0f, 0.8f, 0.f, 0.66f);
+	transparentMaterial.pipelineData.cullMode = VkCullModeFlagBits::VK_CULL_MODE_NONE;
+
+	material2D.vertShaderName = "shaders/Diffuse2D.vert.spv";
+	material2D.fragShaderName = "shaders/Diffuse2D.frag.spv";
+	material2D.dynamicUniformData.colorMultiplier = glm::vec4(1.0f, 0.0f, 0.1f, 0.66f);
+	material2D.pipelineData.depthTestEnable = VK_FALSE;
+	material2D.pipelineData.depthWriteEnable = VK_FALSE;
+	std::vector<Material*> materials = { &gridMaterial, &diffuseMaterial, &transparentMaterial, &material2D };
+
+	GameObject				 grid{ &gridModel, &gridMaterial, "grid" };
+	GameObject				 ruins{ &ruinsModel, &diffuseMaterial, "ruins" };
+	GameObject				 carLeft{ &carModelLeft, &diffuseMaterial, "carLeft" };
+	GameObject				 carRight{ &carModelRight, &diffuseMaterial, "carRight" };
+	GameObject				 beetle{ &beetleModel, &diffuseMaterial, "beetle" };
+	GameObject				 bike{ &bikeModel, &transparentMaterial, "bike" };
+	GameObject				 handLeft{ &handModelLeft, &diffuseMaterial, "handLeft" };
+	GameObject				 handRight{ &handModelRight, &diffuseMaterial, "handRight" };
+	GameObject				 planeLeft{ &planeModelLeft, &material2D, "planeLeft", glm::vec2{ -4.0f, -4.0f } };
+	GameObject				 planeRight{ &planeModelRight, &material2D, "planeRight", glm::vec2{ 4.0f, 4.0f } };
+	GameObject				 square{ &squareModel, &material2D, "square", glm::vec2{ 4.0f, 4.0f } };
+	std::vector<GameObject*> gameObjects = { &grid, &ruins, &carLeft, &carRight, &beetle, &bike, &handLeft, &handRight, &planeLeft, &planeRight, &square };
+
+	grid.WorldMatrix = ruins.WorldMatrix = glm::mat4(1.0f);
+	carLeft.WorldMatrix = glm::rotate(glm::translate(glm::mat4(1.0f), { -3.5f, 0.0f, -7.0f }), glm::radians(75.0f), { 0.0f, 1.0f, 0.0f });
+	carRight.WorldMatrix = glm::rotate(glm::translate(glm::mat4(1.0f), { 8.0f, 0.0f, -15.0f }), glm::radians(-15.0f), { 0.0f, 1.0f, 0.0f });
+	beetle.WorldMatrix = glm::rotate(glm::translate(glm::mat4(1.0f), { -3.5f, 0.0f, -0.5f }), glm::radians(-125.0f), { 0.0f, 1.0f, 0.0f });
+
+	MeshData* meshData = new MeshData;
+	meshData->LoadModel("models/Grid.obj", MeshData::Color::FromNormals, models, 1u);
+	meshData->LoadModel("models/Ruins.obj", MeshData::Color::White, models, 1u);
+	meshData->LoadModel("models/Car.obj", MeshData::Color::White, models, 2u);
+	meshData->LoadModel("models/Beetle.obj", MeshData::Color::White, models, 1u);
+	meshData->LoadModel("models/Bike.obj", MeshData::Color::White, models, 1u);
+	meshData->LoadModel("models/Hand.obj", MeshData::Color::White, models, 2u);
+	meshData->LoadModel("models/Plane.obj", MeshData::Color::White, models, 2u);
+	meshData->CreateSquare(models, 1u);
+
+	VulkanRenderer renderer(&device, &headset, meshData, materials, gameObjects);
+	delete meshData;
+
+	window.Connect(&headset, &renderer);
+	InputHandler::GetInstance().Init(&controllers, &headset);
+
+	// Main loop
+	auto currentTime{ std::chrono::high_resolution_clock::now() };
+	while (!headset.IsExitRequested() && !window.IsExitRequested())
 	{
-		VulkanRenderSystem renderSystem{m_Device, m_Renderer.GetRenderPass(), "Shaders/3DShader.vert.spv", "Shaders/3DShader.frag.spv", true };
-		VulkanRenderSystem renderSystem2D{m_Device, m_Renderer.GetRenderPass(), "Shaders/2DShader.vert.spv", "Shaders/2DShader.frag.spv", false };
+		auto  newTime{ std::chrono::high_resolution_clock::now() };
+		float deltaTime{ std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count() };
+		currentTime = newTime;
 
-        camera.SetViewTarget(glm::vec3(-1.f, -2.f, 2.f), glm::vec3(0.f, 0.f, 2.5f));
-        auto cameraObject{ GameObject::CreateGameObject() };
+		window.ProcessWindowEvents();
 
-        auto currentTime = std::chrono::high_resolution_clock::now();
-		while(!m_Window.ShouldWindowClose())
+		uint32_t						swapchainImageIndex;
+		const Headset::BeginFrameResult frameResult{ headset.BeginFrame(swapchainImageIndex) };
+		if (frameResult == Headset::BeginFrameResult::ThrowError)
 		{
-			glfwPollEvents();
+			return EXIT_FAILURE;
+		}
+		else if (frameResult == Headset::BeginFrameResult::RenderFully)
+		{
+			if (!controllers.Sync())
+			{
+				return EXIT_FAILURE;
+			}
 
-            auto newTime = std::chrono::high_resolution_clock::now();
-            float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
-            currentTime = newTime;
+			static float time{ 0.0f };
+			time += deltaTime;
 
-            inputController.HandleKeyboard(m_Window.GetWindow(), deltaTime, cameraObject);
-            inputController.HandleMouse(m_Window.GetWindow(), deltaTime, cameraObject);
-            camera.SetViewYXZ(cameraObject.m_Transform.translation, cameraObject.m_Transform.rotation);
-            camera.SetPerspectiveProjection(glm::radians(50.f), m_Renderer.GetAspectRatio(), 0.1f, 10.f);
+			// Update
+			InputHandler::GetInstance().Update(deltaTime);
+			UpdateControllers(headset, controllers, handRight, handLeft);
+			UpdateGameObjects(gameObjects, headset);
+			UpdateObjects(time, bike);
 
-            if (auto commandBuffer = m_Renderer.BeginFrame())
-            {
-                m_Renderer.BeginRenderPass(commandBuffer);
-                renderSystem.RenderGameObjects(commandBuffer, m_GameObjects, camera);
-                renderSystem2D.RenderGameObjects(commandBuffer, m_GameObjects2D, camera);
-                //inputController.HandleKeyboard(m_Window.GetWindow(), deltaTime, m_GameObjects[1]);
-                m_Renderer.EndRenderPass(commandBuffer);
-                m_Renderer.EndFrame();
-            }
+			// Render
+			renderer.Render(headset.cameraMatrix, swapchainImageIndex, time);
+
+			// Present
+			if (!PresentImage(window, swapchainImageIndex, renderer))
+			{
+				return EXIT_FAILURE;
+			}
 		}
 
-		vkDeviceWaitIdle(m_Device.GetDevice());
+		if (frameResult == Headset::BeginFrameResult::RenderFully || frameResult == Headset::BeginFrameResult::SkipRender)
+		{
+			headset.EndFrame();
+		}
 	}
 
-	void App::CreateGameObjects()
+	// Sync before destroying so that resources are free
+	device.Sync();
+	return EXIT_SUCCESS;
+}
+
+int App::PresentImage(VulkanWindow& window, const uint32_t& swapchainImageIndex, VulkanRenderer& renderer)
+{
+	VulkanWindow::RenderResult windowResult{ window.Render(swapchainImageIndex) };
+	if (windowResult == VulkanWindow::RenderResult::ThrowError)
 	{
-        std::unique_ptr<Mesh> m_Mesh{ std::make_unique<Mesh>(m_Device, 600, 800, "Models/vikingroom.obj", "Textures/viking_room.png") };
-        auto cube{ GameObject::CreateGameObject() };
-        cube.m_Mesh = std::move(m_Mesh);
-        cube.m_Transform.translation = { 1.5f, 0.f, 2.5f };
-        cube.m_Transform.scale = { 0.5f, 0.5f, 0.5f };
-        cube.m_Transform.rotation = { 1.5,3.0,1.5 };
-        m_GameObjects.push_back(std::move(cube));
-
-        std::unique_ptr<Mesh> vikingroom{ std::make_unique<Mesh>(m_Device, 600, 800, "Models/vikingroom.obj", "Textures/viking_room.png")};
-        auto room{ GameObject::CreateGameObject() };
-        room.m_Mesh = std::move(vikingroom);
-        room.m_Transform.translation = { 0.f, 0.5f, 3.f };
-        room.m_Transform.scale = { 1.5f, 1.5f, 1.5f };
-        room.m_Transform.rotation = { 1.5,3.0,1.5 };
-        m_GameObjects.push_back(std::move(room));
-
-        std::unique_ptr<Mesh> Square{ std::make_unique<Mesh>(m_Device, glm::vec2{0,0})};
-        Square->CreateSquare(m_Device, glm::vec2{ 0,0});
-        auto squareObject{ GameObject::CreateGameObject() };
-        squareObject.m_Mesh = std::move(Square);
-        squareObject.m_Transform.translation = { -0.6f, 0.6f, 0.f };
-        squareObject.m_Transform.scale = { 0.3, 0.3, 0.3f };
-        m_GameObjects2D.push_back(std::move(squareObject));        
-        
-        std::unique_ptr<Mesh> triangle{ std::make_unique<Mesh>(m_Device, glm::vec2{0,0})};
-        triangle->CreateOval(m_Device, glm::vec2{ 0, 0 });
-        auto triangleObject{ GameObject::CreateGameObject() };
-        triangleObject.m_Mesh = std::move(triangle);
-        triangleObject.m_Transform.translation = { 0.6f, 0.6f, 0.f };
-        triangleObject.m_Transform.scale = { 0.5f, 0.5f, 0.5f };
-        m_GameObjects2D.push_back(std::move(triangleObject));
-
-
+		return false;
 	}
+
+	// Present
+	bool windowIsVisible = (windowResult == VulkanWindow::RenderResult::Visible);
+	renderer.submit(windowIsVisible);
+
+	if (windowIsVisible)
+	{
+		window.Present();
+	}
+	return true;
+}
+
+void App::UpdateGameObjects(std::vector<GameObject*>& gameObjects, Headset& headset)
+{
+	for (auto& object : gameObjects)
+	{
+		object->Update(headset);
+	}
+}
+
+
+
+void App::UpdateObjects(float time, GameObject& bikeModel) { bikeModel.WorldMatrix = glm::rotate(glm::translate(glm::mat4(1.0f), { 0.5f, 0.0f, -4.5f }), time * 0.2f, { 0.0f, 1.0f, 0.0f }); }
+
+void App::UpdateControllers(Headset& headset, Controllers& controllers, GameObject& handModelRight, GameObject& handModelLeft)
+{
+	const glm::mat4 inverseCameraMatrix{ glm::inverse(headset.cameraMatrix) };
+	handModelLeft.WorldMatrix = inverseCameraMatrix * controllers.GetPose(0u);
+	handModelRight.WorldMatrix = inverseCameraMatrix * controllers.GetPose(1u);
+	handModelRight.WorldMatrix = glm::scale(handModelRight.WorldMatrix, { -1.0f, 1.0f, 1.0f });
 }

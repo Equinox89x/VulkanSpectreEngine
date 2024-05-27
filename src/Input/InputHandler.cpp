@@ -1,74 +1,86 @@
 #include "InputHandler.h"
 #include <limits>
 
-void Spectre::InputHandler::HandleKeyboard(GLFWwindow* window, float deltaTime, GameObject& gameObject)
+#include "../Misc/Utils.h"
+
+void InputHandler::Init(Controllers* controllers, Headset* headset) {
+	m_Controllers = controllers;
+	m_Headset = headset;
+
+	for (const auto& inputAction : m_InputActions)
+	{
+		inputAction->Init();
+	}
+}
+
+void InputHandler::HandleKeyboard(GLFWwindow* window, float deltaTime, Headset& gameObject)
 {
 
-	glm::vec3 rotate{ 0 };
-	if(glfwGetKey(window, keys.lookRight) == GLFW_PRESS)
-	{
-		rotate.y += 1.f;
-	}
-	if (glfwGetKey(window, keys.lookLeft) == GLFW_PRESS)
-	{
-		rotate.y -= 1.f;
-	}
-	if (glfwGetKey(window, keys.lookUp) == GLFW_PRESS)
-	{
-		rotate.x += 1.f;
-	}
-	if (glfwGetKey(window, keys.lookDown) == GLFW_PRESS)
-	{
-		rotate.x -= 1.f;
-	}
+	//glm::vec3 rotate{ 0 };
+	//if(glfwGetKey(window, m_Keys.lookRight) == GLFW_PRESS)
+	//{
+	//	rotate.y += 1.f;
+	//}
+	//if (glfwGetKey(window, m_Keys.lookLeft) == GLFW_PRESS)
+	//{
+	//	rotate.y -= 1.f;
+	//}
+	//if (glfwGetKey(window, m_Keys.lookUp) == GLFW_PRESS)
+	//{
+	//	rotate.x += 1.f;
+	//}
+	//if (glfwGetKey(window, m_Keys.lookDown) == GLFW_PRESS)
+	//{
+	//	rotate.x -= 1.f;
+	//}
 
-	if(glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon())
-	{
-		gameObject.m_Transform.rotation += lookSpeed * deltaTime * glm::normalize(rotate);
-	}
+	//if(glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon())
+	//{
+	//	gameObject.m_Transform.rotation += m_LookSpeed * deltaTime * glm::normalize(rotate);
+	//}
 
-	gameObject.m_Transform.rotation.x = glm::clamp(gameObject.m_Transform.rotation.x, -1.5f, 1.5f);
-	gameObject.m_Transform.rotation.y = glm::mod(gameObject.m_Transform.rotation.y, glm::two_pi<float>());
+	//gameObject.m_Transform.rotation.x = glm::clamp(gameObject.m_Transform.rotation.x, -1.5f, 1.5f);
+	//gameObject.m_Transform.rotation.y = glm::mod(gameObject.m_Transform.rotation.y, glm::two_pi<float>());
 
-	float yaw = gameObject.m_Transform.rotation.y;
+	float yaw = gameObject.GetViewerPosition().y;
 	const glm::vec3 forwardDir{ sin(yaw), 0.f, cos(yaw) };
 	const glm::vec3 rightDir{ forwardDir.z, 0.f, -forwardDir.x };
 	const glm::vec3 upDir{ 0.f, -1.f, 0.f };
 
 	glm::vec3 moveDir{ 0.f };
 
-	if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS)
+	if (glfwGetKey(window, m_Keys.moveForward) == GLFW_PRESS)
 	{
 		moveDir += forwardDir;
 	}
-	if(glfwGetKey(window, keys.moveBackward) == GLFW_PRESS)
+	if(glfwGetKey(window, m_Keys.moveBackward) == GLFW_PRESS)
 	{
 		moveDir -= forwardDir;
 	}
-	if(glfwGetKey(window, keys.moveRight) == GLFW_PRESS)
+	if(glfwGetKey(window, m_Keys.moveRight) == GLFW_PRESS)
 	{
 		moveDir += rightDir;
 	}
-	if(glfwGetKey(window, keys.moveLeft) == GLFW_PRESS)
+	if(glfwGetKey(window, m_Keys.moveLeft) == GLFW_PRESS)
 	{
 		moveDir -= rightDir;
 	}
-	if(glfwGetKey(window, keys.moveUp) == GLFW_PRESS)
+	if(glfwGetKey(window, m_Keys.moveUp) == GLFW_PRESS)
 	{
 		moveDir += upDir;
 	}
-	if(glfwGetKey(window, keys.moveDown) == GLFW_PRESS)
+	if(glfwGetKey(window, m_Keys.moveDown) == GLFW_PRESS)
 	{
 		moveDir -= upDir;
 	}
 
 	if (glm::dot(moveDir, moveDir) > std::numeric_limits<float>::epsilon())
 	{
-		gameObject.m_Transform.translation += moveSpeed * deltaTime * glm::normalize(moveDir);
+		//gameObject.Translate(m_MoveSpeed * deltaTime * glm::normalize(moveDir));
 	}
 }
 
-void Spectre::InputHandler::HandleMouse(GLFWwindow* window, float deltaTime, GameObject& gameObject)
+void InputHandler::HandleMouse(GLFWwindow* window, float deltaTime, Headset& headset)
 {
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 
@@ -82,9 +94,24 @@ void Spectre::InputHandler::HandleMouse(GLFWwindow* window, float deltaTime, Gam
 		lastX = xpos;
 		lastY = ypos;
 
-		gameObject.m_Transform.rotation.y += static_cast<float>(deltaX) * mouseSensitivity;
-		gameObject.m_Transform.rotation.x += static_cast<float>(-deltaY) * mouseSensitivity;
+		//gameObject.m_Transform.rotation.y += static_cast<float>(deltaX) * m_MouseSensitivity;
+		//gameObject.m_Transform.rotation.x += static_cast<float>(-deltaY) * m_MouseSensitivity;
 
-		gameObject.m_Transform.rotation.x = glm::clamp(gameObject.m_Transform.rotation.x, -glm::pi<float>() / 2.0f, glm::pi<float>() / 2.0f);
+		//gameObject.m_Transform.rotation.x = glm::clamp(gameObject.m_Transform.rotation.x, -glm::pi<float>() / 2.0f, glm::pi<float>() / 2.0f);
+	}
+}
+
+void InputHandler::Update(float deltaTime)
+{
+	// Update the actions
+	const auto& paths{ m_Controllers->GetPaths() };
+	for (size_t controllerIndex = 0u; controllerIndex < m_Controllers->GetNumberOfController(); ++controllerIndex)
+	{
+		const XrPath& path = paths.at(controllerIndex);
+
+		for (auto inputAction : m_InputActions)
+		{
+			inputAction->Update(controllerIndex, m_Headset, path, deltaTime);
+		}
 	}
 }

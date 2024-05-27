@@ -1,41 +1,48 @@
 #pragma once
-#include "VulkanPipeline.h"
-#include "VulkanDevice.h"
-#include "Scene/GameObject.h"
-#include "Camera/Camera.h"
-
-// std includes
-#include <memory>
+#include <array>
+#include <glm/mat4x4.hpp>
 #include <vector>
+#include <vulkan/vulkan.h>
 
-namespace Spectre
+class VulkanDevice;
+class DataBuffer;
+
+class VulkanRenderSystem final
 {
-	struct ShaderData
+public:
+	struct DynamicVertexUniformData
 	{
-		glm::mat4 m_Transform{ 1.f };
-		glm::mat4 m_ProjectionTransform{ 1.f };
-		glm::mat4 m_ObjectTransform{ 1.f };
-		alignas(16) glm::vec3 m_Color;
+		glm::mat4 worldMatrix;
+		glm::vec4 colorMultiplier = glm::vec4(1.0f);
 	};
+	std::vector<DynamicVertexUniformData> dynamicVertexUniformData;
 
-	class VulkanRenderSystem final
+	struct StaticVertexUniformData
 	{
-	public:
-		VulkanRenderSystem(VulkanDevice& device, VkRenderPass renderPass, std::string vertexShaderFileName, std::string fragmentShaderFileName, bool is3D);
-		~VulkanRenderSystem();
-		VulkanRenderSystem(const VulkanRenderSystem&) = delete;
-		VulkanRenderSystem(VulkanRenderSystem&&) = delete;
-		VulkanRenderSystem& operator=(const VulkanRenderSystem&) = delete;
-		VulkanRenderSystem& operator=(VulkanRenderSystem&&) = delete;
+		std::array<glm::mat4, 2u> viewProjectionMatrices; // 0 = left eye, 1 = right eye
+	} staticVertexUniformData;
 
-		void RenderGameObjects(VkCommandBuffer commandBuffer, std::vector<GameObject>& gameObjects, const Camera& camera);
+	struct StaticFragmentUniformData
+	{
+		float time;
+	} staticFragmentUniformData;
 
-	private:
-		VulkanDevice& m_Device;
-		std::unique_ptr<VulkanPipeline> m_Pipeline;
-		VkPipelineLayout m_PipelineLayout;
+	VulkanRenderSystem(const VulkanDevice* m_Device, VkCommandPool m_CommandPool, VkDescriptorPool m_DescriptorPool, VkDescriptorSetLayout m_DescriptorSetLayout, size_t modelCount);
+	~VulkanRenderSystem();
 
-		void CreatePipelineLayout();
-		void CreatePipeline(VkRenderPass renderPass, std::string vertexShaderFileName, std::string fragmentShaderFileName, bool is3D);
-	};
-}
+	VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
+	VkSemaphore		GetDrawableSemaphore() const { return m_DrawableSemaphore; }
+	VkSemaphore		GetPresentableSemaphore() const { return m_PresentableSemaphore; }
+	VkFence			GetBusyFence() const { return m_BusyFence; }
+	VkDescriptorSet GetDescriptorSet() const { return m_DescriptorSet; }
+	void			UpdateUniformBufferData() const;
+
+private:
+	const VulkanDevice* m_Device{ nullptr };
+	VkCommandBuffer		m_CommandBuffer{ nullptr };
+	VkSemaphore			m_DrawableSemaphore{ nullptr }, m_PresentableSemaphore{ nullptr };
+	VkFence				m_BusyFence{ nullptr };
+	DataBuffer*			m_UniformBuffer{ nullptr };
+	void*				m_UniformBufferMemory{ nullptr };
+	VkDescriptorSet		m_DescriptorSet{ nullptr };
+};

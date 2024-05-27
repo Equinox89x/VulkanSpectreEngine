@@ -1,56 +1,50 @@
 #pragma once
-#include "VulkanDevice.h"
 
-// std includes
+#include <vulkan/vulkan.h>
+
 #include <string>
 #include <vector>
 
+class VulkanDevice;
+
 namespace Spectre
 {
-	struct PipelineConfig
+	struct PipelineMaterialPayload
 	{
-		PipelineConfig() = default;
-		PipelineConfig(const PipelineConfig&) = delete;
-		PipelineConfig(PipelineConfig&&) = delete;
-		PipelineConfig& operator=(const PipelineConfig&) = delete;
-		PipelineConfig& operator=(PipelineConfig&&) = delete;
+		VkBlendFactor	   srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+		VkBlendFactor	   dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		VkBlendOp		   colorBlendOp = VK_BLEND_OP_ADD;
+		VkBlendFactor	   srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		VkBlendFactor	   dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		VkBlendOp		   alphaBlendOp = VK_BLEND_OP_ADD;
+		VkCullModeFlagBits cullMode = VkCullModeFlagBits::VK_CULL_MODE_NONE;
+		VkBool32		   depthTestEnable = VK_TRUE;
+		VkBool32		   depthWriteEnable = VK_TRUE;
 
-		VkPipelineViewportStateCreateInfo viewportInfo{};
-		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
-		VkPipelineRasterizationStateCreateInfo rasterizationInfo{};
-		VkPipelineMultisampleStateCreateInfo multisampleInfo{};
-		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-		VkPipelineColorBlendStateCreateInfo colorBlendInfo{};
-		VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
-		std::vector<VkDynamicState> dynamicStateEnables{};
-		VkPipelineDynamicStateCreateInfo dynamicStateInfo{};
-		VkPipelineLayout pipelineLayout = nullptr;
-		VkRenderPass renderPass = nullptr;
-		uint32_t subpass = 0;
-	};
+		bool operator==(const PipelineMaterialPayload& other) const
+		{
+			return (srcColorBlendFactor == other.srcColorBlendFactor) && (dstColorBlendFactor == other.dstColorBlendFactor) && (colorBlendOp == other.colorBlendOp) && (srcAlphaBlendFactor == other.srcAlphaBlendFactor) && (dstAlphaBlendFactor == other.dstAlphaBlendFactor) && (alphaBlendOp == other.alphaBlendOp) && (cullMode == other.cullMode) && (depthTestEnable == other.depthTestEnable) && (depthWriteEnable == other.depthWriteEnable);
+		}
+	};																																																																																																				  
+} // namespace Spectre
 
-	class VulkanPipeline final
-	{
-	public:
-		VulkanPipeline(VulkanDevice & device,  const std::string& vertFilePath,  const std::string fragFilePath,  const PipelineConfig& configInfo, bool is3D);
-		~VulkanPipeline();
-		VulkanPipeline(const VulkanPipeline&) = delete;
-		VulkanPipeline(VulkanPipeline&&) = delete;
-		VulkanPipeline& operator=(const VulkanPipeline&) = delete;
-		VulkanPipeline& operator=(VulkanPipeline&&) = delete;
+class VulkanPipeline final
+{
+public:
+	VulkanPipeline(const VulkanDevice* device, VkPipelineLayout pipelineLayout, VkRenderPass renderPass, const std::string& vertexFilename, const std::string& fragmentFilename, const std::vector<VkVertexInputBindingDescription>& vertexInputBindingDescriptions, const std::vector<VkVertexInputAttributeDescription>& vertexInputAttributeDescriptions, Spectre::PipelineMaterialPayload& materialPayload);
+	~VulkanPipeline();
 
-		static void DefaultPipelineConfigInfo(PipelineConfig& configInfo);
-		void BindBuffers(VkCommandBuffer commandBuffer);
+	void Bind(VkCommandBuffer m_CommandBuffer) const { vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline); };
 
-	private:
-		VulkanDevice& m_Device;
-		VkPipeline m_GraphicsPipeline;
-		VkShaderModule m_VertexShader;
-		VkShaderModule m_FragmentShader;
-		bool m_Is3D{ true };
+	const std::string						GetVertShaderName() const { return m_VertShaderName; }
+	const std::string						GetFragShaderName() const { return m_FragShaderName; }
+	const Spectre::PipelineMaterialPayload& GetPipelineMaterialData() const { return m_PipelineData; }
 
-		static std::vector<char> ReadFile(const std::string& filePath);
-		void CreateGraphicsPipeline(const std::string& vertFilePath, const std::string& fragFilePath, const PipelineConfig& configInfo);
-		void CreateShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
-	};
-}
+private:
+	const VulkanDevice* m_Device{ nullptr };
+	VkPipeline			m_Pipeline{ nullptr };
+	std::string			m_VertShaderName;
+	std::string			m_FragShaderName;
+
+	Spectre::PipelineMaterialPayload m_PipelineData;
+};
