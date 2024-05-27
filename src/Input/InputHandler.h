@@ -1,5 +1,8 @@
 #pragma once
+#ifndef singleton
 #include "../Misc/Singleton.h"
+#define singleton
+#endif
 #include "../VR/Headset.h"
 #include "../VR/controllers.h"
 #include "../VulkanBase/VulkanWindow.h"
@@ -34,9 +37,9 @@ public:
 	};
 
 	void Init(Controllers* controllers, Headset* headset);
-	void HandleKeyboard(GLFWwindow* window, float deltaTime, Headset& headset);
-	void HandleMouse(GLFWwindow* window, float deltaTime, Headset& headset);
-	void Update(float deltaTime);
+	void HandleKeyboard(GLFWwindow* window, Headset& headset);
+	void HandleMouse(GLFWwindow* window, Headset& headset);
+	void Update();
 
 	void AddAction(InputAction* action)
 	{

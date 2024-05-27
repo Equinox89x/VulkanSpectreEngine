@@ -2,6 +2,7 @@
 #include "../Misc/Utils.h"
 #include <glm/ext/matrix_transform.hpp>
 #include "../Core/App.h"
+#include "../Misc/Timer.h"
 
 void MoveAction::Init() {
 	for (size_t controllerIndex = 0u; controllerIndex < Spectre::controllerCount; ++controllerIndex)
@@ -21,7 +22,7 @@ void MoveAction::Init() {
 	}
 }
 
-void MoveAction::Update(size_t controllerIndex, Headset* headset, const XrPath& path, float deltaTime)
+void MoveAction::Update(size_t controllerIndex, Headset* headset, const XrPath& path)
 {
 	// Pose
 	XrActionStatePose poseState{ XR_TYPE_ACTION_STATE_POSE };
@@ -45,8 +46,10 @@ void MoveAction::Update(size_t controllerIndex, Headset* headset, const XrPath& 
 	}
 }
 
-void FlyAction::Update(size_t controllerIndex, Headset* headset, const XrPath& path, float deltaTime)
+void FlyAction::Update(size_t controllerIndex, Headset* headset, const XrPath& path)
 {
+	float deltaTime{ Timer::GetInstance().GetDeltaTime() };
+
 	// Fly speed
 	XrActionStateFloat flySpeedState{ XR_TYPE_ACTION_STATE_FLOAT };
 	utils::UpdateActionStateFloat(m_Controller->GetSession(), *m_Action, path, flySpeedState);
@@ -69,7 +72,7 @@ void FlyAction::Update(size_t controllerIndex, Headset* headset, const XrPath& p
 	}
 }
 
-void WalkAction::Update(size_t controllerIndex, Headset* headset, const XrPath& path, float deltaTime)
+void WalkAction::Update(size_t controllerIndex, Headset* headset, const XrPath& path)
 {
 	XrActionStateFloat walkHorizontalState{ XR_TYPE_ACTION_STATE_FLOAT };
 	utils::UpdateActionStateFloat(m_Controller->GetSession(), *m_Action, path, walkHorizontalState);

@@ -57,6 +57,8 @@ set(SRC
   "Misc/Utils.cpp"
   "Misc/Utils.h"
   "Misc/Singleton.h"
+  "Misc/Timer.h" 
+  "Misc/Timer.cpp"
 
 
   "Input/InputHandler.cpp"
@@ -69,7 +71,7 @@ set(SRC
 )
 
 add_executable(${TARGET_NAME})
-target_sources(${TARGET_NAME} PRIVATE ${SRC}     )
+target_sources(${TARGET_NAME} PRIVATE ${SRC})
 target_include_directories(${TARGET_NAME} PRIVATE ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(${TARGET_NAME} PRIVATE glfw glm openxr_loader tinyobjloader ${Vulkan_LIBRARIES})
 

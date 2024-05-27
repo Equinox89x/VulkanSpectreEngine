@@ -2,6 +2,7 @@
 #include <limits>
 
 #include "../Misc/Utils.h"
+#include "../Misc/Timer.h"
 
 void InputHandler::Init(Controllers* controllers, Headset* headset) {
 	m_Controllers = controllers;
@@ -13,9 +14,9 @@ void InputHandler::Init(Controllers* controllers, Headset* headset) {
 	}
 }
 
-void InputHandler::HandleKeyboard(GLFWwindow* window, float deltaTime, Headset& gameObject)
+void InputHandler::HandleKeyboard(GLFWwindow* window, Headset& gameObject)
 {
-
+	float deltaTime{ Timer::GetInstance().GetDeltaTime() };
 	//glm::vec3 rotate{ 0 };
 	//if(glfwGetKey(window, m_Keys.lookRight) == GLFW_PRESS)
 	//{
@@ -80,8 +81,10 @@ void InputHandler::HandleKeyboard(GLFWwindow* window, float deltaTime, Headset& 
 	}
 }
 
-void InputHandler::HandleMouse(GLFWwindow* window, float deltaTime, Headset& headset)
+void InputHandler::HandleMouse(GLFWwindow* window, Headset& headset)
 {
+	float deltaTime{ Timer::GetInstance().GetDeltaTime() };
+
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 
 		double xpos, ypos;
@@ -101,7 +104,7 @@ void InputHandler::HandleMouse(GLFWwindow* window, float deltaTime, Headset& hea
 	}
 }
 
-void InputHandler::Update(float deltaTime)
+void InputHandler::Update()
 {
 	// Update the actions
 	const auto& paths{ m_Controllers->GetPaths() };
@@ -111,7 +114,7 @@ void InputHandler::Update(float deltaTime)
 
 		for (auto inputAction : m_InputActions)
 		{
-			inputAction->Update(controllerIndex, m_Headset, path, deltaTime);
+			inputAction->Update(controllerIndex, m_Headset, path);
 		}
 	}
 }

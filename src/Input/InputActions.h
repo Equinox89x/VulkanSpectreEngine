@@ -19,7 +19,7 @@ public:
 	InputAction& operator=(const InputAction&) = delete;
 	InputAction& operator=(InputAction&&) = delete;
 
-	virtual void Update(size_t controllerIndex, Headset* headset, const XrPath& path, float deltaTime) = 0;
+	virtual void Update(size_t controllerIndex, Headset* headset, const XrPath& path) = 0;
 	virtual void Init() = 0;
 };
 class MoveAction : public InputAction
@@ -27,7 +27,7 @@ class MoveAction : public InputAction
 public:
 	MoveAction(Controllers* controller, XrAction* action) : m_Controller{ controller }, m_Action{ action } {};
 	void Init();
-	void Update(size_t controllerIndex, Headset* headset, const XrPath& path, float deltaTime);
+	void Update(size_t controllerIndex, Headset* headset, const XrPath& path);
 
 private:
 	XrAction*	 m_Action{ nullptr };
@@ -39,7 +39,7 @@ class FlyAction : public InputAction
 public:
 	FlyAction(Controllers* controller, XrAction* action) : m_Controller{ controller }, m_Action{ action } {};
 	void Init() {}
-	void Update(size_t controllerIndex, Headset* headset, const XrPath& path, float deltaTime);
+	void Update(size_t controllerIndex, Headset* headset, const XrPath& path);
 
 private:
 	XrAction*	 m_Action{ nullptr };
@@ -51,7 +51,7 @@ class WalkAction : public InputAction
 public:
 	WalkAction(Controllers* controller, XrAction* action) : m_Controller{ controller }, m_Action{ action } {};
 	void Init() {}
-	void Update(size_t controllerIndex, Headset* headset, const XrPath& path, float deltaTime);
+	void Update(size_t controllerIndex, Headset* headset, const XrPath& path);
 
 private:
 	XrAction*	 m_Action{ nullptr };

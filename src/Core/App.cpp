@@ -88,12 +88,14 @@ int App::Run()
 	InputHandler::GetInstance().Init(&controllers, &headset);
 
 	// Main loop
-	auto currentTime{ std::chrono::high_resolution_clock::now() };
+	//auto currentTime{ std::chrono::high_resolution_clock::now() };
+	Timer::GetInstance().Start();
 	while (!headset.IsExitRequested() && !window.IsExitRequested())
 	{
-		auto  newTime{ std::chrono::high_resolution_clock::now() };
+		/*auto  newTime{ std::chrono::high_resolution_clock::now() };
 		float deltaTime{ std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count() };
-		currentTime = newTime;
+		currentTime = newTime;*/
+		Timer::GetInstance().Update();
 
 		window.ProcessWindowEvents();
 
@@ -111,10 +113,10 @@ int App::Run()
 			}
 
 			static float time{ 0.0f };
-			time += deltaTime;
+			time += Timer::GetInstance().GetDeltaTime();
 
 			// Update
-			InputHandler::GetInstance().Update(deltaTime);
+			InputHandler::GetInstance().Update();
 			UpdateControllers(headset, controllers, handRight, handLeft);
 			UpdateGameObjects(gameObjects, headset);
 			UpdateObjects(time, bike);
@@ -137,6 +139,7 @@ int App::Run()
 
 	// Sync before destroying so that resources are free
 	device.Sync();
+	Timer::GetInstance().Stop();
 	return EXIT_SUCCESS;
 }
 
