@@ -9,7 +9,7 @@ RenderTarget::RenderTarget(VkDevice device, VkImage image, VkImageView colorImag
 {
 	utils::CreateImageView(image, format, layerCount, VK_IMAGE_ASPECT_COLOR_BIT, device, m_ImageView);
 
-	const std::array attachments = { colorImageView, depthImageView, m_ImageView };
+	const std::array attachments{ colorImageView, depthImageView, m_ImageView };
 
 	// Create a framebuffer
 	VkFramebufferCreateInfo framebufferCreateInfo{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };

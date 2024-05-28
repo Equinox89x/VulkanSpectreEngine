@@ -1,8 +1,5 @@
 #include "../Scene/MeshData.h"
-
 #include "../Misc/Utils.h"
-//#include "Model.h"
-
 #include <cstring>
 #include <iostream>
 #include <tiny_obj_loader.h>
@@ -13,16 +10,15 @@ bool MeshData::LoadModel(const std::string& filename, Color color, std::vector<M
 	std::vector<tinyobj::shape_t> shapes;
 	if (!tinyobj::LoadObj(&attrib, &shapes, nullptr, nullptr, nullptr, filename.c_str()))
 	{
-
 		(EError::ModelLoadingFailure, filename);
 		return false;
 	}
 
-	const size_t oldIndexCount = m_Indices.size();
+	const size_t oldIndexCount{ m_Indices.size() };
 
-	for (const tinyobj::shape_t& shape : shapes)
+	for (const auto& shape : shapes)
 	{
-		for (const tinyobj::index_t& index : shape.mesh.indices)
+		for (const auto& index : shape.mesh.indices)
 		{
 
 			Vertex vertex;
@@ -59,15 +55,15 @@ bool MeshData::LoadModel(const std::string& filename, Color color, std::vector<M
 
 void MeshData::WriteTo(char* destination) const
 {
-	const size_t verticesSize = sizeof(m_Vertices.at(0u)) * m_Vertices.size();
-	const size_t indicesSize = sizeof(m_Indices.at(0u)) * m_Indices.size();
-	memcpy(destination, m_Vertices.data(), verticesSize);				 // Vertex section first
+	const size_t verticesSize{ sizeof(m_Vertices.at(0u)) * m_Vertices.size() };
+	const size_t indicesSize{ sizeof(m_Indices.at(0u)) * m_Indices.size() };
+	memcpy(destination, m_Vertices.data(), verticesSize);			   // Vertex section first
 	memcpy(destination + verticesSize, m_Indices.data(), indicesSize); // Index section next
 }
 
 bool MeshData::CreateTriangle(std::vector<Model*>& models, size_t count)
 {
-	const size_t oldIndexCount = m_Indices.size();
+	const size_t oldIndexCount{ m_Indices.size() };
 
 	m_Vertices = { Vertex{ { 0.25f, -0.5f, 0.1f }, { 0, 0, 0 }, { 1.0f, 1.0f, 1.0f } }, Vertex{ { 0.5f, 0.5f, 0.1f }, { 0, 0, 0 }, { 0.0f, 1.0f, 0.0f } }, Vertex{ { -0.5f, 0.5f, 0.1f }, { 0, 0, 0 }, { 0.0f, 0.0f, 1.0f } } };
 
@@ -87,12 +83,12 @@ bool MeshData::CreateSquare(std::vector<Model*>& models, size_t count)
 	m_Vertices.push_back({ { -1.0f, 1.0f, 0.0f }, { 0, 0, 0 }, { 0.0f, 0.0f, 1.0f } });
 	m_Vertices.push_back({ { 1.0f, 1.0f, 0.0f }, { 0, 0, 0 }, { 1.0f, 1.0f, 1.0f } });
 
-	 m_Indices.push_back(0);
-	 m_Indices.push_back(1);
-	 m_Indices.push_back(2);
-	 m_Indices.push_back(0);
-	 m_Indices.push_back(2);
-	 m_Indices.push_back(3);
+	m_Indices.push_back(0);
+	m_Indices.push_back(1);
+	m_Indices.push_back(2);
+	m_Indices.push_back(0);
+	m_Indices.push_back(2);
+	m_Indices.push_back(3);
 
 	HandleModelData(models, count, oldIndexCount, "customsquare");
 
@@ -101,9 +97,9 @@ bool MeshData::CreateSquare(std::vector<Model*>& models, size_t count)
 
 bool MeshData::CreateOval(int numSegments, float width, float height, std::vector<Model*>& models, size_t count)
 {
-	const size_t oldIndexCount = m_Indices.size();
+	const size_t oldIndexCount{ m_Indices.size() };
 
-	constexpr float M_PI = 3.14f;
+	constexpr float M_PI{ 3.14f };
 
 	for (int i = 0; i <= numSegments; ++i)
 	{
@@ -128,9 +124,9 @@ bool MeshData::CreateOval(int numSegments, float width, float height, std::vecto
 
 bool MeshData::CreateRoundedRectangle(int numSegments, float width, float height, float cornerRadius, std::vector<Model*>& models, size_t count)
 {
-	const size_t oldIndexCount = m_Indices.size();
+	const size_t oldIndexCount{ m_Indices.size() };
 
-	constexpr float M_PI = 3.14f;
+	constexpr float M_PI{ 3.14f };
 
 	for (int i = 0; i < 4; ++i)
 	{

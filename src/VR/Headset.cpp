@@ -18,15 +18,15 @@ namespace
 
 Headset::Headset(const VulkanDevice* device) : m_Device(device)
 {
-	const VkDevice				vkDevice = device->GetVkDevice();
-	const VkSampleCountFlagBits m_MultisampleCount = device->GetMultisampleCount();
+	const VkDevice				vkDevice{ device->GetVkDevice() };
+	const VkSampleCountFlagBits m_MultisampleCount{ device->GetMultisampleCount() };
 
 	CreateRenderPass(m_MultisampleCount, vkDevice);
 
-	const XrInstance	   m_XrInstance = device->GetXrInstance();
-	const XrSystemId	   xrSystemId = device->GetXrSystemId();
-	const VkPhysicalDevice vkPhysicalDevice = device->GetVkPhysicalDevice();
-	const uint32_t		   vkDrawQueueFamilyIndex = device->GetVkDrawQueueFamilyIndex();
+	const XrInstance	   m_XrInstance{ device->GetXrInstance() };
+	const XrSystemId	   xrSystemId{ device->GetXrSystemId() };
+	const VkPhysicalDevice vkPhysicalDevice{ device->GetVkPhysicalDevice() };
+	const uint32_t		   vkDrawQueueFamilyIndex{ device->GetVkDrawQueueFamilyIndex() };
 
 	// Create a session with Vulkan graphics binding
 	XrGraphicsBindingVulkanKHR graphicsBinding{ XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR };
@@ -55,7 +55,7 @@ Headset::Headset(const VulkanDevice* device) : m_Device(device)
 		utils::ThrowError(EError::GenericOpenXR);
 	}
 
-	const XrViewConfigurationType viewType = device->GetXrViewType();
+	const XrViewConfigurationType viewType{ device->GetXrViewType() };
 
 	// Get the number of eyes
 	result = xrEnumerateViewConfigurationViews(m_XrInstance, xrSystemId, viewType, 0u, reinterpret_cast<uint32_t*>(&m_EyeCount), nullptr);
@@ -89,7 +89,7 @@ Headset::Headset(const VulkanDevice* device) : m_Device(device)
 	// Verify that the desired color format is supported
 	VerifyColorFormatSupport(result);
 
-	const VkExtent2D eyeResolution = GetEyeResolution(0u);
+	const VkExtent2D eyeResolution{ GetEyeResolution(0u) };
 
 	m_ColorBuffer = new ImageBuffer(device, eyeResolution, colorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, device->GetMultisampleCount(), VK_IMAGE_ASPECT_COLOR_BIT, 2u);
 	m_DepthBuffer = new ImageBuffer(device, eyeResolution, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, device->GetMultisampleCount(), VK_IMAGE_ASPECT_DEPTH_BIT, 2u);
@@ -176,8 +176,8 @@ void Headset::CreateSwapChain(XrResult& result, const VkDevice& vkDevice, const 
 void Headset::CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, const VkDevice& vkDevice)
 {
 
-	constexpr uint32_t viewMask = 0b00000011;
-	constexpr uint32_t correlationMask = 0b00000011;
+	constexpr uint32_t viewMask{ 0b00000011 };
+	constexpr uint32_t correlationMask{ 0b00000011 };
 
 	VkRenderPassMultiviewCreateInfo renderPassMultiviewCreateInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO };
 	renderPassMultiviewCreateInfo.subpassCount = 1u;
@@ -195,7 +195,7 @@ void Headset::CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, 
 	colorAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	colorAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	VkAttachmentReference colorAttachmentReference;
+	VkAttachmentReference colorAttachmentReference{};
 	colorAttachmentReference.attachment = 0u;
 	colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -209,7 +209,7 @@ void Headset::CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, 
 	depthAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	depthAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	VkAttachmentReference depthAttachmentReference;
+	VkAttachmentReference depthAttachmentReference{};
 	depthAttachmentReference.attachment = 1u;
 	depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
@@ -223,7 +223,7 @@ void Headset::CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, 
 	resolveAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	resolveAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	VkAttachmentReference resolveAttachmentReference;
+	VkAttachmentReference resolveAttachmentReference{};
 	resolveAttachmentReference.attachment = 2u;
 	resolveAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -234,7 +234,7 @@ void Headset::CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, 
 	subpassDescription.pDepthStencilAttachment = &depthAttachmentReference;
 	subpassDescription.pResolveAttachments = &resolveAttachmentReference;
 
-	const std::array attachments = { colorAttachmentDescription, depthAttachmentDescription, resolveAttachmentDescription };
+	const std::array attachments{ colorAttachmentDescription, depthAttachmentDescription, resolveAttachmentDescription };
 
 	VkRenderPassCreateInfo renderPassCreateInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
 	renderPassCreateInfo.pNext = &renderPassMultiviewCreateInfo;
@@ -251,7 +251,7 @@ void Headset::CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, 
 void Headset::VerifyColorFormatSupport(XrResult& result)
 {
 
-	uint32_t formatCount = 0u;
+	uint32_t formatCount{ 0u };
 	result = xrEnumerateSwapchainFormats(m_Session, 0u, &formatCount, nullptr);
 	if (XR_FAILED(result))
 	{
@@ -329,7 +329,7 @@ Headset::~Headset()
 
 Headset::BeginFrameResult Headset::BeginFrame(uint32_t& outSwapchainImageIndex)
 {
-	const XrInstance instance = m_Device->GetXrInstance();
+	const XrInstance instance{ m_Device->GetXrInstance() };
 
 	// Poll OpenXR events
 	XrEventDataBuffer buffer{ XR_TYPE_EVENT_DATA_BUFFER };
@@ -422,8 +422,8 @@ Headset::BeginFrameResult Headset::BeginFrame(uint32_t& outSwapchainImageIndex)
 	// Update the eye render infos, view and projection matrices
 	for (size_t eyeIndex = 0u; eyeIndex < m_EyeCount; ++eyeIndex)
 	{
-		const XrView&					  eyePose = m_EyePoses.at(eyeIndex);
-		XrCompositionLayerProjectionView& eyeRenderInfo = m_EyeRenderInfos.at(eyeIndex);
+		const XrView&					  eyePose{ m_EyePoses.at(eyeIndex) };
+		XrCompositionLayerProjectionView& eyeRenderInfo{ m_EyeRenderInfos.at(eyeIndex) };
 		eyeRenderInfo.pose = eyePose.pose;
 		eyeRenderInfo.fov = eyePose.fov;
 		const XrPosef& pose = eyeRenderInfo.pose;
@@ -433,8 +433,8 @@ Headset::BeginFrameResult Headset::BeginFrame(uint32_t& outSwapchainImageIndex)
 		m_ViewerPosition = glm::vec3(pose.position.x, pose.position.y, pose.position.z) - m_ViewerPositionOffset;
 		m_ViewerOrientation = glm::quat(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
 
-		glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), m_ViewerPosition);
-		glm::mat4 rotationMatrix = glm::mat4_cast(m_ViewerOrientation);
+		glm::mat4 translationMatrix{ glm::translate(glm::mat4(1.0f), m_ViewerPosition) };
+		glm::mat4 rotationMatrix{ glm::mat4_cast(m_ViewerOrientation) };
 		worldMatrix = translationMatrix * rotationMatrix;
 	}
 
@@ -462,7 +462,7 @@ void Headset::EndFrame() const
 {
 	// Release the swapchain image
 	XrSwapchainImageReleaseInfo swapchainImageReleaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
-	XrResult					result = xrReleaseSwapchainImage(m_Swapchain, &swapchainImageReleaseInfo);
+	XrResult					result{ xrReleaseSwapchainImage(m_Swapchain, &swapchainImageReleaseInfo) };
 	if (XR_FAILED(result))
 	{
 		return;

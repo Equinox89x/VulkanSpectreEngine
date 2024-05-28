@@ -22,6 +22,15 @@ struct Material
 	VulkanPipeline*								 pipeline{ nullptr };
 };
 
+struct ShadowMap
+{
+	VkImage		  image;
+	VkImageView	  imageView;
+	VkSampler	  sampler;
+	VkFramebuffer framebuffer;
+	VkExtent2D	  extent;
+};
+
 struct GameObject
 {
 	GameObject(Model* model, Material* material, std::string name, bool isVisible = true)

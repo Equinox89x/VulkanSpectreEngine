@@ -100,7 +100,7 @@ VulkanDevice::VulkanDevice()
 	std::vector<const char*> vulkanInstanceExtensions;
 	{
 		uint32_t	 requiredExtensionCount;
-		const char** buffer = glfwGetRequiredInstanceExtensions(&requiredExtensionCount);
+		const char** buffer{ glfwGetRequiredInstanceExtensions(&requiredExtensionCount) };
 		if (!buffer)
 		{
 			utils::ThrowError(EError::GenericGLFW);
@@ -118,7 +118,7 @@ VulkanDevice::VulkanDevice()
 	// Check that all required Vulkan instance extensions are supported
 	for (const char* extension : vulkanInstanceExtensions)
 	{
-		bool extensionSupported = false;
+		bool extensionSupported{ false };
 
 		for (const VkExtensionProperties& supportedExtension : supportedVulkanInstanceExtensions)
 		{
@@ -178,7 +178,7 @@ void VulkanDevice::CheckSupportedBlendMode(XrResult& result)
 		utils::ThrowError(EError::GenericOpenXR);
 	}
 
-	bool modeFound = false;
+	bool modeFound{ false };
 	for (const XrEnvironmentBlendMode& mode : supportedEnvironmentBlendModes)
 	{
 		if (mode == Spectre::environmentBlendMode)
@@ -233,7 +233,7 @@ void VulkanDevice::AddOpenXRExtentions(XrResult& result, std::vector<const char*
 		utils::ThrowError(EError::GenericOpenXR);
 	}
 
-	const std::vector<const char*> instanceExtensions = utils::UnpackExtensionString(buffer);
+	const std::vector<const char*> instanceExtensions{ utils::UnpackExtensionString(buffer) };
 	for (const char* extension : instanceExtensions)
 	{
 		vulkanInstanceExtensions.push_back(extension);
@@ -250,12 +250,12 @@ void VulkanDevice::CreateXRInstance(std::vector<XrExtensionProperties>& supporte
 	memcpy(applicationInfo.applicationName, Spectre::applicationName.data(), Spectre::applicationName.length() + 1u);
 	memcpy(applicationInfo.engineName, Spectre::engineName.data(), Spectre::engineName.length() + 1u);
 
-	std::vector<const char*> extensions = { XR_KHR_VULKAN_ENABLE_EXTENSION_NAME };
+	std::vector<const char*> extensions{ XR_KHR_VULKAN_ENABLE_EXTENSION_NAME };
 
 	// Check that all OpenXR instance extensions are supported
 	for (const char* extension : extensions)
 	{
-		bool extensionSupported = false;
+		bool extensionSupported{ false };
 		for (const XrExtensionProperties& supportedExtension : supportedOpenXRInstanceExtensions)
 		{
 			if (strcmp(extension, supportedExtension.extensionName) == 0)
@@ -287,7 +287,7 @@ void VulkanDevice::CreateXRInstance(std::vector<XrExtensionProperties>& supporte
 bool VulkanDevice::CreateXRDevice(VkSurfaceKHR mirrorSurface)
 {
 	// Retrieve the physical device from OpenXR
-	XrResult result = m_XrGetVulkanGraphicsDeviceKHR(m_XrInstance, m_SystemId, m_VkInstance, &m_PhysicalDevice);
+	XrResult result{ m_XrGetVulkanGraphicsDeviceKHR(m_XrInstance, m_SystemId, m_VkInstance, &m_PhysicalDevice) };
 	if (XR_FAILED(result))
 	{
 		utils::ThrowError(EError::GenericOpenXR);
@@ -382,7 +382,7 @@ bool VulkanDevice::HandleExtentionSupportCheck(std::vector<const char*>& vulkanD
 
 	for (const char* extension : vulkanDeviceExtensions)
 	{
-		bool extensionSupported = false;
+		bool extensionSupported{ false };
 		for (const VkExtensionProperties& supportedExtension : supportedVulkanDeviceExtensions)
 		{
 			if (strcmp(extension, supportedExtension.extensionName) == 0)
@@ -481,13 +481,13 @@ bool VulkanDevice::GetPresentQueueFamilyIndex(const VkSurfaceKHR& mirrorSurface)
 
 	// Retrieve the queue families
 	std::vector<VkQueueFamilyProperties> queueFamilies;
-	uint32_t							 queueFamilyCount = 0u;
+	uint32_t							 queueFamilyCount{ 0u };
 	vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, nullptr);
 
 	queueFamilies.resize(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(m_PhysicalDevice, &queueFamilyCount, queueFamilies.data());
 
-	bool presentQueueFamilyIndexFound = false;
+	bool presentQueueFamilyIndexFound{ false };
 	for (size_t queueFamilyIndexCandidate = 0u; queueFamilyIndexCandidate < queueFamilies.size(); ++queueFamilyIndexCandidate)
 	{
 		const VkQueueFamilyProperties& queueFamilyCandidate = queueFamilies.at(queueFamilyIndexCandidate);

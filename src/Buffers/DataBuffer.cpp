@@ -96,8 +96,7 @@ bool DataBuffer::CopyTo(const DataBuffer& target, VkCommandBuffer commandBuffer,
 void* DataBuffer::MapData() const
 {
 	void* data;
-
-	const VkResult result = vkMapMemory(m_Device->GetVkDevice(), deviceMemory, 0u, size, 0, &data);
+	const VkResult result{ vkMapMemory(m_Device->GetVkDevice(), deviceMemory, 0u, size, 0, &data) };
 	if (result != VK_SUCCESS)
 	{
 		utils::ThrowError(EError::GenericVulkan);

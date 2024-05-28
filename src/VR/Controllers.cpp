@@ -14,7 +14,7 @@ Controllers::Controllers(XrInstance instance, XrSession session) : m_Session(ses
 	memcpy(actionSetCreateInfo.actionSetName, Spectre::actionSetName.data(), Spectre::actionSetName.length() + 1u);
 	memcpy(actionSetCreateInfo.localizedActionSetName, Spectre::localizedActionSetName.data(), Spectre::localizedActionSetName.length() + 1u);
 
-	XrResult result = xrCreateActionSet(instance, &actionSetCreateInfo, &m_ActionSetData.actionSet);
+	XrResult result{ xrCreateActionSet(instance, &actionSetCreateInfo, &m_ActionSetData.actionSet) };
 	if (XR_FAILED(result))
 	{
 		utils::ThrowError(EError::GenericOpenXR);
@@ -209,7 +209,7 @@ bool Controllers::Sync()
 	actionsSyncInfo.countActiveActionSets = 1u;
 	actionsSyncInfo.activeActionSets = &activeActionSet;
 
-	XrResult result = xrSyncActions(m_Session, &actionsSyncInfo);
+	XrResult result{ xrSyncActions(m_Session, &actionsSyncInfo) };
 	if (XR_FAILED(result))
 	{
 		utils::ThrowError(EError::GenericOpenXR);

@@ -64,7 +64,7 @@ void VulkanRenderSystem::InitUBO(const size_t& modelCount)
 
 void VulkanRenderSystem::CreateDescriptorWithBuffer(const VulkanDevice* device, const size_t& modelCount, const VkDescriptorPool& descriptorPool, VkDescriptorSetLayout& descriptorSetLayout, const VkDevice& vkDevice)
 {
-	const VkDeviceSize uniformBufferOffsetAlignment = device->GetUniformBufferOffsetAlignment();
+	const VkDeviceSize uniformBufferOffsetAlignment{ device->GetUniformBufferOffsetAlignment() };
 
 	// Partition the uniform buffer data
 	std::array<VkDescriptorBufferInfo, 3u> descriptorBufferInfos;
@@ -79,7 +79,7 @@ void VulkanRenderSystem::CreateDescriptorWithBuffer(const VulkanDevice* device, 
 	descriptorBufferInfos.at(2u).range = sizeof(StaticFragmentUniformData);
 
 	// Create an empty uniform buffer
-	const VkDeviceSize uniformBufferSize = descriptorBufferInfos.at(2u).offset + descriptorBufferInfos.at(2u).range;
+	const VkDeviceSize uniformBufferSize{ descriptorBufferInfos.at(2u).offset + descriptorBufferInfos.at(2u).range };
 	m_UniformBuffer = new DataBuffer(device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBufferSize);
 
 	// Map the uniform buffer memory
@@ -176,7 +176,7 @@ void VulkanRenderSystem::UpdateUniformBufferData() const
 		return;
 	}
 
-	const VkDeviceSize uniformBufferOffsetAlignment = m_Device->GetUniformBufferOffsetAlignment();
+	const VkDeviceSize uniformBufferOffsetAlignment{ m_Device->GetUniformBufferOffsetAlignment() };
 
 	char*		 offset = static_cast<char*>(m_UniformBufferMemory);
 	VkDeviceSize length = sizeof(DynamicVertexUniformData);

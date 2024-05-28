@@ -31,8 +31,6 @@ VulkanRenderer::VulkanRenderer(const VulkanDevice* device, const Headset* headse
 	CreatePipelines(vkDevice, device, materials);
 
 	CreateVertexIndexBuffer(meshData, m_Device);
-
-	m_IndexOffset = meshData->GetIndexOffset();
 }
 
 void VulkanRenderer::CreateDescriptors(const VkDevice& vkDevice)
@@ -177,10 +175,10 @@ VulkanRenderer::~VulkanRenderer()
 
 void VulkanRenderer::CreateVertexIndexBuffer(const MeshData* meshData, const VulkanDevice* m_Device)
 {
-	const VkDeviceSize bufferSize = static_cast<VkDeviceSize>(meshData->GetSize());
-	DataBuffer*		   stagingBuffer = new DataBuffer(m_Device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, bufferSize);
+	const VkDeviceSize bufferSize{ static_cast<VkDeviceSize>(meshData->GetSize()) };
+	DataBuffer*		   stagingBuffer{ new DataBuffer(m_Device, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, bufferSize) };
 
-	char* bufferData = static_cast<char*>(stagingBuffer->MapData());
+	char* bufferData{ static_cast<char*>(stagingBuffer->MapData()) };
 
 	meshData->WriteTo(bufferData);
 	stagingBuffer->UnmapData();
@@ -189,21 +187,23 @@ void VulkanRenderer::CreateVertexIndexBuffer(const MeshData* meshData, const Vul
 
 	stagingBuffer->CopyTo(*m_VertexIndexBuffer, m_RenderProcesses.at(0u)->GetCommandBuffer(), m_Device->GetVkDrawQueue());
 	delete stagingBuffer;
+
+	m_IndexOffset = meshData->GetIndexOffset();
 }
 
 void VulkanRenderer::Render(const glm::mat4& cameraMatrix, size_t swapchainImageIndex, float time, glm::vec3 lightDirection)
 {
 	m_CurrentRenderProcessIndex = (m_CurrentRenderProcessIndex + 1u) % m_RenderProcesses.size();
 
-	VulkanRenderSystem* renderProcess = m_RenderProcesses.at(m_CurrentRenderProcessIndex);
+	VulkanRenderSystem* renderProcess{ m_RenderProcesses.at(m_CurrentRenderProcessIndex) };
 
-	const VkFence m_BusyFence = renderProcess->GetBusyFence();
+	const VkFence m_BusyFence{ renderProcess->GetBusyFence() };
 	if (vkResetFences(m_Device->GetVkDevice(), 1u, &m_BusyFence) != VK_SUCCESS)
 	{
 		return;
 	}
 
-	const VkCommandBuffer commandBuffer = renderProcess->GetCommandBuffer();
+	const VkCommandBuffer commandBuffer{ renderProcess->GetCommandBuffer() };
 	if (vkResetCommandBuffer(commandBuffer, 0u) != VK_SUCCESS)
 	{
 		return;
@@ -224,7 +224,7 @@ void VulkanRenderer::Render(const glm::mat4& cameraMatrix, size_t swapchainImage
 
 	renderProcess->UpdateUniformBufferData();
 
-	const std::array clearValues = { VkClearValue({ 0.01f, 0.01f, 0.01f, 1.0f }), VkClearValue({ 1.0f, 0u }) };
+	const std::array clearValues{ VkClearValue({ 0.01f, 0.01f, 0.01f, 1.0f }), VkClearValue({ 1.0f, 0u }) };
 
 	VkRenderPassBeginInfo renderPassBeginInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
 	renderPassBeginInfo.renderPass = m_Headset->GetVkRenderPass();
@@ -262,7 +262,7 @@ void VulkanRenderer::Render(const glm::mat4& cameraMatrix, size_t swapchainImage
 
 void VulkanRenderer::DrawModels(VulkanRenderSystem* renderProcess, const VkCommandBuffer& commandBuffer)
 {
-	const VkDescriptorSet descriptorSet = renderProcess->GetDescriptorSet();
+	const VkDescriptorSet descriptorSet{ renderProcess->GetDescriptorSet() };
 	for (size_t modelIndex = 0u; modelIndex < m_GameObjects.size(); ++modelIndex)
 	{
 		const GameObject* gameObject = m_GameObjects.at(modelIndex);
@@ -304,17 +304,17 @@ VulkanPipeline* VulkanRenderer::FindExistingPipeline(const std::string& vertShad
 
 void VulkanRenderer::Submit(bool useSemaphores) const
 {
-	const VulkanRenderSystem* renderProcess = m_RenderProcesses.at(m_CurrentRenderProcessIndex);
-	const VkCommandBuffer	  commandBuffer = renderProcess->GetCommandBuffer();
+	const VulkanRenderSystem* renderProcess{ m_RenderProcesses.at(m_CurrentRenderProcessIndex) };
+	const VkCommandBuffer	  commandBuffer{ renderProcess->GetCommandBuffer() };
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 	{
 		return;
 	}
 
-	constexpr VkPipelineStageFlags waitStages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	const VkSemaphore			   drawableSemaphore = renderProcess->GetDrawableSemaphore();
-	const VkSemaphore			   presentableSemaphore = renderProcess->GetPresentableSemaphore();
-	const VkFence				   busyFence = renderProcess->GetBusyFence();
+	constexpr VkPipelineStageFlags waitStages{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	const VkSemaphore			   drawableSemaphore{ renderProcess->GetDrawableSemaphore() };
+	const VkSemaphore			   presentableSemaphore{ renderProcess->GetPresentableSemaphore() };
+	const VkFence				   busyFence{ renderProcess->GetBusyFence() };
 
 	VkSubmitInfo submitInfo{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	submitInfo.pWaitDstStageMask = &waitStages;

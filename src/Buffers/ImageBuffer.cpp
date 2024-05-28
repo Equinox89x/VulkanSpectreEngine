@@ -6,7 +6,7 @@
 
 ImageBuffer::ImageBuffer(const VulkanDevice* device, VkExtent2D size, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VkImageAspectFlags aspect, size_t layerCount) : m_Device(device)
 {
-	const VkDevice vkDevice = device->GetVkDevice();
+	const VkDevice vkDevice{ device->GetVkDevice() };
 
 	// Create an image
 	VkImageCreateInfo imageCreateInfo{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
@@ -32,7 +32,7 @@ ImageBuffer::ImageBuffer(const VulkanDevice* device, VkExtent2D size, VkFormat f
 	VkMemoryRequirements memoryRequirements;
 	vkGetImageMemoryRequirements(vkDevice, m_Image, &memoryRequirements);
 
-	uint32_t suitableMemoryTypeIndex = 0u;
+	uint32_t suitableMemoryTypeIndex{ 0u };
 	if (!utils::FindSuitableMemoryTypeIndex(device->GetVkPhysicalDevice(), memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, suitableMemoryTypeIndex))
 	{
 		utils::ThrowError(EError::FeatureNotSupported, "Suitable image buffer memory type");

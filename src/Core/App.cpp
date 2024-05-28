@@ -1,12 +1,12 @@
 #include "App.h"
 #include "../Input/InputHandler.h"
+#include "../Light/LightSystem.h"
 #include "../Misc/Utils.h"
 #include "../Scene/GameData.h"
 #include "../Scene/MeshData.h"
 #include "../VR/Controllers.h"
 #include "../VulkanBase/VulkanDevice.h"
 #include "../VulkanBase/VulkanRenderer.h"
-#include "../Light/LightSystem.h"
 // #include "../VulkanBase/VulkanWindow.h"
 #include <chrono>
 #include <iostream>
@@ -31,7 +31,7 @@ int App::Run()
 	Controllers controllers(device.GetXrInstance(), headset.GetXrSession());
 
 	Model				gridModel, ruinsModel, carModelLeft, carModelRight, beetleModel, bikeModel, handModelLeft, handModelRight, planeModelLeft, planeModelRight, squareModel, sunModel;
-	std::vector<Model*> models = { &gridModel, &ruinsModel, &carModelLeft, &carModelRight, &sunModel, & beetleModel, &bikeModel, &handModelLeft, &handModelRight, &planeModelLeft, &planeModelRight, &squareModel };
+	std::vector<Model*> models{ &gridModel, &ruinsModel, &carModelLeft, &carModelRight, &sunModel, &beetleModel, &bikeModel, &handModelLeft, &handModelRight, &planeModelLeft, &planeModelRight, &squareModel };
 
 	Material gridMaterial, diffuseMaterial, transparentMaterial, material2D, sunMaterial = {};
 	gridMaterial.vertShaderName = "shaders/Grid.vert.spv";
@@ -56,7 +56,7 @@ int App::Run()
 	material2D.dynamicUniformData.colorMultiplier = glm::vec4(1.0f, 0.0f, 0.1f, 0.66f);
 	material2D.pipelineData.depthTestEnable = VK_FALSE;
 	material2D.pipelineData.depthWriteEnable = VK_FALSE;
-	std::vector<Material*> materials = { &gridMaterial, &diffuseMaterial, &transparentMaterial, &material2D, &sunMaterial };
+	std::vector<Material*> materials{ &gridMaterial, &diffuseMaterial, &transparentMaterial, &material2D, &sunMaterial };
 
 	GameObject				 grid{ &gridModel, &gridMaterial, "grid" };
 	GameObject				 ruins{ &ruinsModel, &diffuseMaterial, "ruins" };
@@ -76,7 +76,7 @@ int App::Run()
 	carRight.WorldMatrix = glm::rotate(glm::translate(glm::mat4(1.0f), { 8.0f, 0.0f, -15.0f }), glm::radians(-15.0f), { 0.0f, 1.0f, 0.0f });
 	beetle.WorldMatrix = glm::rotate(glm::translate(glm::mat4(1.0f), { -3.5f, 0.0f, -0.5f }), glm::radians(-125.0f), { 0.0f, 1.0f, 0.0f });
 
-	MeshData* meshData = new MeshData;
+	MeshData* meshData{ new MeshData };
 	meshData->LoadModel("models/Grid.obj", MeshData::Color::FromNormals, models, 1u);
 	meshData->LoadModel("models/Ruins.obj", MeshData::Color::White, models, 1u);
 	meshData->LoadModel("models/Car.obj", MeshData::Color::White, models, 3u);

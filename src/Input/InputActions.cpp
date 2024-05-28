@@ -7,7 +7,7 @@
 void MoveAction::Init() {
 	for (size_t controllerIndex = 0u; controllerIndex < Spectre::controllerCount; ++controllerIndex)
 	{
-		const XrPath& path = m_Controller->GetPaths().at(controllerIndex);
+		const XrPath& path{ m_Controller->GetPaths().at(controllerIndex) };
 
 		XrActionSpaceCreateInfo actionSpaceCreateInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
 		actionSpaceCreateInfo.action = *m_Action;
@@ -61,10 +61,10 @@ void FlyAction::Update(size_t controllerIndex, Headset* headset, const XrPath& p
 
 	for (size_t controllerIndex = 0u; controllerIndex < 2u; ++controllerIndex)
 	{
-		const float flySpeed = m_Controller->GetFlySpeed(controllerIndex);
+		const float flySpeed{ m_Controller->GetFlySpeed(controllerIndex) };
 		if (flySpeed > 0.0f)
 		{
-			const glm::vec3 forward = glm::normalize(m_Controller->GetPose(controllerIndex)[2]);
+			const glm::vec3 forward{ glm::normalize(m_Controller->GetPose(controllerIndex)[2]) };
 			//headset->worldMatrix = glm::translate(headset->worldMatrix, forward * flySpeed * flySpeedMultiplier * deltaTime);
 			headset->cameraMatrix = glm::translate(headset->cameraMatrix, forward * flySpeed * flySpeedMultiplier * deltaTime);
 			headset->AddToViewerPosition(forward * flySpeed * flySpeedMultiplier * deltaTime);

@@ -55,4 +55,6 @@ private:
 	bool	 m_ResizeDetected{ false };
 
 	bool RecreateSwapchain();
+	bool HandleSurfaceCapabilities(const VkPhysicalDevice& physicalDevice, VkSurfaceCapabilitiesKHR& surfaceCapabilities);
+	bool HandleSurfaceFormat(const VkPhysicalDevice& physicalDevice, VkSurfaceFormatKHR& surfaceFormat);
 };

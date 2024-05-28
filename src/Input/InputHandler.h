@@ -52,7 +52,7 @@ public:
 private:
 	float m_MoveSpeed{ 3.f };
 	float m_LookSpeed{ 1.5f };
-	float m_MouseSensitivity = 0.01f;
+	float m_MouseSensitivity{ 0.01f };
 
 	std::vector<InputAction*> m_InputActions;
 	Controllers*			  m_Controllers{ nullptr };
