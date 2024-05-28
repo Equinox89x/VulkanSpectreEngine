@@ -23,7 +23,7 @@ public:
 	VulkanRenderer(const VulkanDevice* m_Device, const Headset* m_Headset, const MeshData* meshData, const std::vector<Material*>& materials, const std::vector<GameObject*>& gameObjects);
 	~VulkanRenderer();
 
-	void Render(const glm::mat4& cameraMatrix, size_t swapchainImageIndex, float time);
+	void Render(const glm::mat4& cameraMatrix, size_t swapchainImageIndex, float time, glm::vec3 lightDirection);
 	void submit(bool useSemaphores) const;
 
 	VkCommandBuffer GetCurrentCommandBuffer() const { return m_RenderProcesses.at(m_CurrentRenderProcessIndex)->GetCommandBuffer(); }

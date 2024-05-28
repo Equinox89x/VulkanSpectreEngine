@@ -25,6 +25,10 @@ public:
 	struct StaticFragmentUniformData
 	{
 		float time;
+		//glm::vec3 lightDirection{ 1.0f, -1.0f, -1.0f };
+		float x;
+		float y;
+		float z;
 	} staticFragmentUniformData;
 
 	VulkanRenderSystem(const VulkanDevice* m_Device, VkCommandPool m_CommandPool, VkDescriptorPool m_DescriptorPool, VkDescriptorSetLayout m_DescriptorSetLayout, size_t modelCount);

@@ -12,6 +12,9 @@ set(SHADER_SRC
 
   Shaders/Grid.vert
   Shaders/Grid.frag
+
+  Shaders/Illumination.vert
+  Shaders/Illumination.frag
 )
 
 set(SRC
@@ -66,12 +69,14 @@ set(SRC
   "Input/InputActions.h" 
   "Input/InputActions.cpp"
 
+  "Light/LightSystem.h" 
+  "Light/LightSystem.cpp"
 
   ${SHADER_SRC}
 )
 
 add_executable(${TARGET_NAME})
-target_sources(${TARGET_NAME} PRIVATE ${SRC})
+target_sources(${TARGET_NAME} PRIVATE ${SRC} )
 target_include_directories(${TARGET_NAME} PRIVATE ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(${TARGET_NAME} PRIVATE glfw glm openxr_loader tinyobjloader ${Vulkan_LIBRARIES})
 

@@ -21,79 +21,7 @@ Headset::Headset(const VulkanDevice* device) : m_Device(device)
 	const VkDevice				vkDevice = device->GetVkDevice();
 	const VkSampleCountFlagBits m_MultisampleCount = device->GetMultisampleCount();
 
-	// Create a render pass
-	{
-		constexpr uint32_t viewMask = 0b00000011;
-		constexpr uint32_t correlationMask = 0b00000011;
-
-		VkRenderPassMultiviewCreateInfo renderPassMultiviewCreateInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO };
-		renderPassMultiviewCreateInfo.subpassCount = 1u;
-		renderPassMultiviewCreateInfo.pViewMasks = &viewMask;
-		renderPassMultiviewCreateInfo.correlationMaskCount = 1u;
-		renderPassMultiviewCreateInfo.pCorrelationMasks = &correlationMask;
-
-		VkAttachmentDescription colorAttachmentDescription{};
-		colorAttachmentDescription.format = colorFormat;
-		colorAttachmentDescription.samples = m_MultisampleCount;
-		colorAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentReference colorAttachmentReference;
-		colorAttachmentReference.attachment = 0u;
-		colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription depthAttachmentDescription{};
-		depthAttachmentDescription.format = depthFormat;
-		depthAttachmentDescription.samples = m_MultisampleCount;
-		depthAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		depthAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		depthAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentReference depthAttachmentReference;
-		depthAttachmentReference.attachment = 1u;
-		depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription resolveAttachmentDescription{};
-		resolveAttachmentDescription.format = colorFormat;
-		resolveAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
-		resolveAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		resolveAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		resolveAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		resolveAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		resolveAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		resolveAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentReference resolveAttachmentReference;
-		resolveAttachmentReference.attachment = 2u;
-		resolveAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkSubpassDescription subpassDescription{};
-		subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpassDescription.colorAttachmentCount = 1u;
-		subpassDescription.pColorAttachments = &colorAttachmentReference;
-		subpassDescription.pDepthStencilAttachment = &depthAttachmentReference;
-		subpassDescription.pResolveAttachments = &resolveAttachmentReference;
-
-		const std::array attachments = { colorAttachmentDescription, depthAttachmentDescription, resolveAttachmentDescription };
-
-		VkRenderPassCreateInfo renderPassCreateInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-		renderPassCreateInfo.pNext = &renderPassMultiviewCreateInfo;
-		renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		renderPassCreateInfo.pAttachments = attachments.data();
-		renderPassCreateInfo.subpassCount = 1u;
-		renderPassCreateInfo.pSubpasses = &subpassDescription;
-		if (vkCreateRenderPass(vkDevice, &renderPassCreateInfo, nullptr, &m_RenderPass) != VK_SUCCESS)
-		{
-			utils::ThrowError(EError::GenericVulkan);
-		}
-	}
+	CreateRenderPass(m_MultisampleCount, vkDevice);
 
 	const XrInstance	   m_XrInstance = device->GetXrInstance();
 	const XrSystemId	   xrSystemId = device->GetXrSystemId();
@@ -159,98 +87,15 @@ Headset::Headset(const VulkanDevice* device) : m_Device(device)
 	}
 
 	// Verify that the desired color format is supported
-	{
-		uint32_t formatCount = 0u;
-		result = xrEnumerateSwapchainFormats(m_Session, 0u, &formatCount, nullptr);
-		if (XR_FAILED(result))
-		{
-			utils::ThrowError(EError::GenericOpenXR);
-		}
-
-		std::vector<int64_t> formats(formatCount);
-		result = xrEnumerateSwapchainFormats(m_Session, formatCount, &formatCount, formats.data());
-		if (XR_FAILED(result))
-		{
-			utils::ThrowError(EError::GenericOpenXR);
-		}
-
-		bool formatFound = false;
-		for (const int64_t& format : formats)
-		{
-			if (format == static_cast<int64_t>(colorFormat))
-			{
-				formatFound = true;
-				break;
-			}
-		}
-
-		if (!formatFound)
-		{
-			utils::ThrowError(EError::FeatureNotSupported, "OpenXR swapchain color format");
-		}
-	}
+	VerifyColorFormatSupport(result);
 
 	const VkExtent2D eyeResolution = GetEyeResolution(0u);
 
-	// Create a color buffer
 	m_ColorBuffer = new ImageBuffer(device, eyeResolution, colorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, device->GetMultisampleCount(), VK_IMAGE_ASPECT_COLOR_BIT, 2u);
-
-	// Create a depth buffer
 	m_DepthBuffer = new ImageBuffer(device, eyeResolution, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, device->GetMultisampleCount(), VK_IMAGE_ASPECT_DEPTH_BIT, 2u);
 
 	// Create a swapchain and render targets
-	{
-		const XrViewConfigurationView& eyeImageInfo{ m_EyeImageInfos.at(0u) };
-
-		// Create a swapchain
-		XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
-		swapchainCreateInfo.format = colorFormat;
-		swapchainCreateInfo.sampleCount = eyeImageInfo.recommendedSwapchainSampleCount;
-		swapchainCreateInfo.width = eyeImageInfo.recommendedImageRectWidth;
-		swapchainCreateInfo.height = eyeImageInfo.recommendedImageRectHeight;
-		swapchainCreateInfo.arraySize = static_cast<uint32_t>(m_EyeCount);
-		swapchainCreateInfo.faceCount = 1u;
-		swapchainCreateInfo.mipCount = 1u;
-
-		result = xrCreateSwapchain(m_Session, &swapchainCreateInfo, &m_Swapchain);
-		if (XR_FAILED(result))
-		{
-			utils::ThrowError(EError::GenericOpenXR);
-		}
-
-		// Get the number of swapchain images
-		uint32_t swapchainImageCount;
-		result = xrEnumerateSwapchainImages(m_Swapchain, 0u, &swapchainImageCount, nullptr);
-		if (XR_FAILED(result))
-		{
-			utils::ThrowError(EError::GenericOpenXR);
-		}
-
-		// Retrieve the swapchain images
-		std::vector<XrSwapchainImageVulkanKHR> swapchainImages;
-		swapchainImages.resize(swapchainImageCount);
-		for (XrSwapchainImageVulkanKHR& swapchainImage : swapchainImages)
-		{
-			swapchainImage.type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
-		}
-
-		XrSwapchainImageBaseHeader* data{ reinterpret_cast<XrSwapchainImageBaseHeader*>(swapchainImages.data()) };
-		result = xrEnumerateSwapchainImages(m_Swapchain, static_cast<uint32_t>(swapchainImages.size()), &swapchainImageCount, data);
-		if (XR_FAILED(result))
-		{
-			utils::ThrowError(EError::GenericOpenXR);
-		}
-
-		// Create the render targets
-		m_SwapchainRenderTargets.resize(swapchainImages.size());
-		for (size_t renderTargetIndex = 0u; renderTargetIndex < m_SwapchainRenderTargets.size(); ++renderTargetIndex)
-		{
-			RenderTarget*& renderTarget = m_SwapchainRenderTargets.at(renderTargetIndex);
-
-			const VkImage image = swapchainImages.at(renderTargetIndex).image;
-			renderTarget = new RenderTarget(vkDevice, image, m_ColorBuffer->getImageView(), m_DepthBuffer->getImageView(), eyeResolution, colorFormat, m_RenderPass, 2u);
-		}
-	}
+	CreateSwapChain(result, vkDevice, eyeResolution);
 
 	// Create the eye render infos
 	m_EyeRenderInfos.resize(m_EyeCount);
@@ -271,6 +116,169 @@ Headset::Headset(const VulkanDevice* device) : m_Device(device)
 	// Allocate view and projection matrices
 	m_EyeViewMatrices.resize(m_EyeCount);
 	m_EyeProjectionMatrices.resize(m_EyeCount);
+}
+
+void Headset::CreateSwapChain(XrResult& result, const VkDevice& vkDevice, const VkExtent2D& eyeResolution)
+{
+
+	const XrViewConfigurationView& eyeImageInfo{ m_EyeImageInfos.at(0u) };
+
+	// Create a swapchain
+	XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
+	swapchainCreateInfo.format = colorFormat;
+	swapchainCreateInfo.sampleCount = eyeImageInfo.recommendedSwapchainSampleCount;
+	swapchainCreateInfo.width = eyeImageInfo.recommendedImageRectWidth;
+	swapchainCreateInfo.height = eyeImageInfo.recommendedImageRectHeight;
+	swapchainCreateInfo.arraySize = static_cast<uint32_t>(m_EyeCount);
+	swapchainCreateInfo.faceCount = 1u;
+	swapchainCreateInfo.mipCount = 1u;
+
+	result = xrCreateSwapchain(m_Session, &swapchainCreateInfo, &m_Swapchain);
+	if (XR_FAILED(result))
+	{
+		utils::ThrowError(EError::GenericOpenXR);
+	}
+
+	// Get the number of swapchain images
+	uint32_t swapchainImageCount;
+	result = xrEnumerateSwapchainImages(m_Swapchain, 0u, &swapchainImageCount, nullptr);
+	if (XR_FAILED(result))
+	{
+		utils::ThrowError(EError::GenericOpenXR);
+	}
+
+	// Retrieve the swapchain images
+	std::vector<XrSwapchainImageVulkanKHR> swapchainImages;
+	swapchainImages.resize(swapchainImageCount);
+	for (XrSwapchainImageVulkanKHR& swapchainImage : swapchainImages)
+	{
+		swapchainImage.type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR;
+	}
+
+	XrSwapchainImageBaseHeader* data{ reinterpret_cast<XrSwapchainImageBaseHeader*>(swapchainImages.data()) };
+	result = xrEnumerateSwapchainImages(m_Swapchain, static_cast<uint32_t>(swapchainImages.size()), &swapchainImageCount, data);
+	if (XR_FAILED(result))
+	{
+		utils::ThrowError(EError::GenericOpenXR);
+	}
+
+	// Create the render targets
+	m_SwapchainRenderTargets.resize(swapchainImages.size());
+	for (size_t renderTargetIndex = 0u; renderTargetIndex < m_SwapchainRenderTargets.size(); ++renderTargetIndex)
+	{
+		RenderTarget*& renderTarget = m_SwapchainRenderTargets.at(renderTargetIndex);
+
+		const VkImage image = swapchainImages.at(renderTargetIndex).image;
+		renderTarget = new RenderTarget(vkDevice, image, m_ColorBuffer->GetImageView(), m_DepthBuffer->GetImageView(), eyeResolution, colorFormat, m_RenderPass, 2u);
+	}
+}
+
+void Headset::CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, const VkDevice& vkDevice)
+{
+
+	constexpr uint32_t viewMask = 0b00000011;
+	constexpr uint32_t correlationMask = 0b00000011;
+
+	VkRenderPassMultiviewCreateInfo renderPassMultiviewCreateInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO };
+	renderPassMultiviewCreateInfo.subpassCount = 1u;
+	renderPassMultiviewCreateInfo.pViewMasks = &viewMask;
+	renderPassMultiviewCreateInfo.correlationMaskCount = 1u;
+	renderPassMultiviewCreateInfo.pCorrelationMasks = &correlationMask;
+
+	VkAttachmentDescription colorAttachmentDescription{};
+	colorAttachmentDescription.format = colorFormat;
+	colorAttachmentDescription.samples = m_MultisampleCount;
+	colorAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference colorAttachmentReference;
+	colorAttachmentReference.attachment = 0u;
+	colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentDescription depthAttachmentDescription{};
+	depthAttachmentDescription.format = depthFormat;
+	depthAttachmentDescription.samples = m_MultisampleCount;
+	depthAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	depthAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depthAttachmentReference;
+	depthAttachmentReference.attachment = 1u;
+	depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentDescription resolveAttachmentDescription{};
+	resolveAttachmentDescription.format = colorFormat;
+	resolveAttachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+	resolveAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	resolveAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	resolveAttachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	resolveAttachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	resolveAttachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	resolveAttachmentDescription.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference resolveAttachmentReference;
+	resolveAttachmentReference.attachment = 2u;
+	resolveAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpassDescription{};
+	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDescription.colorAttachmentCount = 1u;
+	subpassDescription.pColorAttachments = &colorAttachmentReference;
+	subpassDescription.pDepthStencilAttachment = &depthAttachmentReference;
+	subpassDescription.pResolveAttachments = &resolveAttachmentReference;
+
+	const std::array attachments = { colorAttachmentDescription, depthAttachmentDescription, resolveAttachmentDescription };
+
+	VkRenderPassCreateInfo renderPassCreateInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+	renderPassCreateInfo.pNext = &renderPassMultiviewCreateInfo;
+	renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+	renderPassCreateInfo.pAttachments = attachments.data();
+	renderPassCreateInfo.subpassCount = 1u;
+	renderPassCreateInfo.pSubpasses = &subpassDescription;
+	if (vkCreateRenderPass(vkDevice, &renderPassCreateInfo, nullptr, &m_RenderPass) != VK_SUCCESS)
+	{
+		utils::ThrowError(EError::GenericVulkan);
+	}
+}
+
+void Headset::VerifyColorFormatSupport(XrResult& result)
+{
+
+	uint32_t formatCount = 0u;
+	result = xrEnumerateSwapchainFormats(m_Session, 0u, &formatCount, nullptr);
+	if (XR_FAILED(result))
+	{
+		utils::ThrowError(EError::GenericOpenXR);
+	}
+
+	std::vector<int64_t> formats(formatCount);
+	result = xrEnumerateSwapchainFormats(m_Session, formatCount, &formatCount, formats.data());
+	if (XR_FAILED(result))
+	{
+		utils::ThrowError(EError::GenericOpenXR);
+	}
+
+	bool formatFound = false;
+	for (const int64_t& format : formats)
+	{
+		if (format == static_cast<int64_t>(colorFormat))
+		{
+			formatFound = true;
+			break;
+		}
+	}
+
+	if (!formatFound)
+	{
+		utils::ThrowError(EError::FeatureNotSupported, "OpenXR swapchain color format");
+	}
 }
 
 Headset::~Headset()

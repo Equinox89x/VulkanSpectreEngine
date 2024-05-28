@@ -10,7 +10,7 @@ void MoveAction::Init() {
 		const XrPath& path = m_Controller->GetPaths().at(controllerIndex);
 
 		XrActionSpaceCreateInfo actionSpaceCreateInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
-		actionSpaceCreateInfo.action = *m_Controller->GetActions()["Hand Pose"]->Action /*m_PoseAction*/;
+		actionSpaceCreateInfo.action = *m_Action;
 		actionSpaceCreateInfo.poseInActionSpace = utils::MakeIdentityPose();
 		actionSpaceCreateInfo.subactionPath = path;
 

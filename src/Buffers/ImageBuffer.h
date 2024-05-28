@@ -12,7 +12,7 @@ public:
 	ImageBuffer(const VulkanDevice* m_Device, VkExtent2D size, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples, VkImageAspectFlags aspect, size_t layerCount);
 	~ImageBuffer();
 
-	VkImageView getImageView() const { return m_ImageView; }
+	VkImageView GetImageView() const { return m_ImageView; }
 
 private:
 	const VulkanDevice* m_Device{ nullptr };

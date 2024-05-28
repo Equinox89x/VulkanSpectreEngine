@@ -113,44 +113,13 @@ VulkanRenderer::VulkanRenderer(const VulkanDevice* device, const Headset* headse
 	vertexInputAttributeColor.format = VK_FORMAT_R32G32B32_SFLOAT;
 	vertexInputAttributeColor.offset = offsetof(Vertex, color);
 
-	Spectre::PipelineMaterialPayload pipelineMaterialPayload = {};
 	m_Pipelines.resize(3);
-	//m_Pipelines[0] = new VulkanPipeline(m_Device, m_PipelineLayout, m_Headset->GetVkRenderPass(), "shaders/Grid.vert.spv", "shaders/Grid.frag.spv", { vertexInputBindingDescription }, { vertexInputAttributePosition, vertexInputAttributeColor }, pipelineMaterialPayload);
-	//m_Pipelines[1] = new VulkanPipeline(m_Device, m_PipelineLayout, m_Headset->GetVkRenderPass(), "shaders/Diffuse.vert.spv", "shaders/Diffuse.frag.spv", { vertexInputBindingDescription }, { vertexInputAttributePosition, vertexInputAttributeNormal, vertexInputAttributeColor }, pipelineMaterialPayload);
-	//m_Pipelines[2] = new VulkanPipeline(m_Device, m_PipelineLayout, m_Headset->GetVkRenderPass(), "shaders/Diffuse2D.vert.spv", "shaders/Diffuse2D.frag.spv", { vertexInputBindingDescription }, { vertexInputAttributePosition, vertexInputAttributeNormal, vertexInputAttributeColor }, pipelineMaterialPayload, false);
 
 	for (size_t i = 0; i < materials.size(); i++)
 	{
-		//VulkanPipeline* existingPipeline = FindExistingPipeline(materials[i]->vertShaderName, materials[i]->fragShaderName, materials[i]->pipelineData);
-		// std::printf("\n[Renderer][log] pipelining materials: index: {%d}, shader.name: {%s}, exists: {%d}", i, materials[i]->fragShaderName.c_str(), pipelineExistsAt );
-		//  [tdbe] default grid pipeline
-		//if (i == 0)
-		//{
-		//	materials[0]->pipeline = m_Pipelines[0];
-
-		//} // [tdbe] default diffuse pipeline
-		//else if (existingPipeline)
-		//{
-		//	materials[i]->pipeline = existingPipeline;
-		//} // [tdbe] create a new pipeline from material shader name, with default parameters
-		//else
-		//{
-			m_Pipelines.emplace_back(new VulkanPipeline(m_Device, m_PipelineLayout, m_Headset->GetVkRenderPass(), materials[i]->vertShaderName, materials[i]->fragShaderName, { vertexInputBindingDescription }, { vertexInputAttributePosition, vertexInputAttributeNormal, vertexInputAttributeColor }, materials[i]->pipelineData));
-			materials[i]->pipeline = m_Pipelines[m_Pipelines.size() - 1];
-		//}
-
-		// if (!materials[i]->pipeline->isValid())
-		//{
-		//	valid = false;
-		//	return;
-		// }
+		m_Pipelines.emplace_back(new VulkanPipeline(m_Device, m_PipelineLayout, m_Headset->GetVkRenderPass(), materials[i]->vertShaderName, materials[i]->fragShaderName, { vertexInputBindingDescription }, { vertexInputAttributePosition, vertexInputAttributeNormal, vertexInputAttributeColor }, materials[i]->pipelineData));
+		materials[i]->pipeline = m_Pipelines[m_Pipelines.size() - 1];
 	}
-
-	// m_GridPipeline = new VulkanPipeline(m_Device, m_PipelineLayout, m_Headset->GetVkRenderPass(), "shaders/Grid.vert.spv", "shaders/Grid.frag.spv", { vertexInputBindingDescription }, { vertexInputAttributePosition, vertexInputAttributeColor });
-
-	// m_DiffusePipeline = new VulkanPipeline(m_Device, m_PipelineLayout, m_Headset->GetVkRenderPass(), "shaders/Diffuse.vert.spv", "shaders/Diffuse.frag.spv", { vertexInputBindingDescription }, { vertexInputAttributePosition, vertexInputAttributeNormal, vertexInputAttributeColor });
-
-	// m_2DPipeline = new VulkanPipeline(m_Device, m_PipelineLayout, m_Headset->GetVkRenderPass(), "shaders/Diffuse2D.vert.spv", "shaders/Diffuse2D.frag.spv", { vertexInputBindingDescription }, { vertexInputAttributePosition, vertexInputAttributeNormal, vertexInputAttributeColor }, false);
 
 	// Create a vertex index buffer
 	CreateVertexIndexBuffer(meshData, m_Device);
@@ -161,12 +130,9 @@ VulkanRenderer::VulkanRenderer(const VulkanDevice* device, const Headset* headse
 VulkanRenderer::~VulkanRenderer()
 {
 	delete m_VertexIndexBuffer;
-	// delete m_DiffusePipeline;
-	// delete m_GridPipeline;
 
 	for (size_t i = 0; i < m_Pipelines.size(); i++)
 	{
-		// vkDestroyPipeline(device, materials[i]->pipeline, nullptr);
 		delete m_Pipelines[i];
 	}
 
@@ -216,7 +182,7 @@ void VulkanRenderer::CreateVertexIndexBuffer(const MeshData* meshData, const Vul
 	delete stagingBuffer;
 }
 
-void VulkanRenderer::Render(const glm::mat4& cameraMatrix, size_t swapchainImageIndex, float time)
+void VulkanRenderer::Render(const glm::mat4& cameraMatrix, size_t swapchainImageIndex, float time, glm::vec3 lightDirection)
 {
 	m_CurrentRenderProcessIndex = (m_CurrentRenderProcessIndex + 1u) % m_RenderProcesses.size();
 
@@ -243,6 +209,10 @@ void VulkanRenderer::Render(const glm::mat4& cameraMatrix, size_t swapchainImage
 	UpdateUniformBuffers(renderProcess, cameraMatrix);
 
 	renderProcess->staticFragmentUniformData.time = time;
+	renderProcess->staticFragmentUniformData.x = lightDirection.x;
+	renderProcess->staticFragmentUniformData.y = lightDirection.y;
+	renderProcess->staticFragmentUniformData.z = lightDirection.z;
+
 	renderProcess->UpdateUniformBufferData();
 
 	const std::array clearValues = { VkClearValue({ 0.01f, 0.01f, 0.01f, 1.0f }), VkClearValue({ 1.0f, 0u }) };
@@ -289,24 +259,7 @@ void VulkanRenderer::DrawModels(VulkanRenderSystem* renderProcess, const VkComma
 		const GameObject* gameObject = m_GameObjects.at(modelIndex);
 		const uint32_t	  uniformBufferOffset = static_cast<uint32_t>(utils::Align(static_cast<VkDeviceSize>(sizeof(VulkanRenderSystem::DynamicVertexUniformData)), m_Device->GetUniformBufferOffsetAlignment()) * static_cast<VkDeviceSize>(modelIndex));
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0u, 1u, &descriptorSet, 1u, &uniformBufferOffset);
-
 		gameObject->Material->pipeline->Bind(commandBuffer);
-		/*if (!gameObject->Is2DShape)
-		{
-			if (modelIndex == 0u)
-			{
-				m_GridPipeline->Bind(commandBuffer);
-			}
-			else if (modelIndex == 1u)
-			{
-				m_DiffusePipeline->Bind(commandBuffer);
-			}
-		}
-		else
-		{
-			m_2DPipeline->Bind(commandBuffer);
-		}*/
-
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(gameObject->Model->IndexCount), 1u, static_cast<uint32_t>(gameObject->Model->FirstIndex), 0u, 0u);
 	}
 }
@@ -317,7 +270,6 @@ void VulkanRenderer::UpdateUniformBuffers(VulkanRenderSystem* renderProcess, con
 	{
 		renderProcess->dynamicVertexUniformData.at(modelIndex).worldMatrix = m_GameObjects.at(modelIndex)->WorldMatrix;
 		renderProcess->dynamicVertexUniformData[modelIndex].colorMultiplier = m_GameObjects.at(modelIndex)->Material->dynamicUniformData.colorMultiplier;
-
 	}
 
 	for (size_t eyeIndex = 0u; eyeIndex < m_Headset->GetEyeCount(); ++eyeIndex)

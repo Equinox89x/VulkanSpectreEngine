@@ -54,7 +54,7 @@ VulkanRenderSystem::VulkanRenderSystem(const VulkanDevice* device, VkCommandPool
 		utils::ThrowError(EError::GenericVulkan);
 	}
 
-	const VkDeviceSize m_UniformBufferOffsetAlignment = device->GetUniformBufferOffsetAlignment();
+	const VkDeviceSize uniformBufferOffsetAlignment = device->GetUniformBufferOffsetAlignment();
 
 	// Partition the uniform buffer data
 	std::array<VkDescriptorBufferInfo, 3u> descriptorBufferInfos;
@@ -62,10 +62,10 @@ VulkanRenderSystem::VulkanRenderSystem(const VulkanDevice* device, VkCommandPool
 	descriptorBufferInfos.at(0u).offset = 0u;
 	descriptorBufferInfos.at(0u).range = sizeof(DynamicVertexUniformData);
 
-	descriptorBufferInfos.at(1u).offset = utils::Align(descriptorBufferInfos.at(0u).range, m_UniformBufferOffsetAlignment) * static_cast<VkDeviceSize>(modelCount);
+	descriptorBufferInfos.at(1u).offset = utils::Align(descriptorBufferInfos.at(0u).range, uniformBufferOffsetAlignment) * static_cast<VkDeviceSize>(modelCount);
 	descriptorBufferInfos.at(1u).range = sizeof(StaticVertexUniformData);
 
-	descriptorBufferInfos.at(2u).offset = descriptorBufferInfos.at(1u).offset + utils::Align(descriptorBufferInfos.at(1u).range, m_UniformBufferOffsetAlignment);
+	descriptorBufferInfos.at(2u).offset = descriptorBufferInfos.at(1u).offset + utils::Align(descriptorBufferInfos.at(1u).range, uniformBufferOffsetAlignment);
 	descriptorBufferInfos.at(2u).range = sizeof(StaticFragmentUniformData);
 
 	// Create an empty uniform buffer
@@ -166,19 +166,19 @@ void VulkanRenderSystem::UpdateUniformBufferData() const
 		return;
 	}
 
-	const VkDeviceSize m_UniformBufferOffsetAlignment = m_Device->GetUniformBufferOffsetAlignment();
+	const VkDeviceSize uniformBufferOffsetAlignment = m_Device->GetUniformBufferOffsetAlignment();
 
 	char*		 offset = static_cast<char*>(m_UniformBufferMemory);
 	VkDeviceSize length = sizeof(DynamicVertexUniformData);
 	for (const DynamicVertexUniformData& dynamicData : dynamicVertexUniformData)
 	{
 		memcpy(offset, &dynamicData, length);
-		offset += utils::Align(length, m_UniformBufferOffsetAlignment);
+		offset += utils::Align(length, uniformBufferOffsetAlignment);
 	}
 
 	length = sizeof(StaticVertexUniformData);
 	memcpy(offset, &staticVertexUniformData, length);
-	offset += utils::Align(length, m_UniformBufferOffsetAlignment);
+	offset += utils::Align(length, uniformBufferOffsetAlignment);
 
 	length = sizeof(StaticFragmentUniformData);
 	memcpy(offset, &staticFragmentUniformData, length);
