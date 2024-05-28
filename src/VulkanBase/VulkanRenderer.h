@@ -24,7 +24,7 @@ public:
 	~VulkanRenderer();
 
 	void Render(const glm::mat4& cameraMatrix, size_t swapchainImageIndex, float time, glm::vec3 lightDirection);
-	void submit(bool useSemaphores) const;
+	void Submit(bool useSemaphores) const;
 
 	VkCommandBuffer GetCurrentCommandBuffer() const { return m_RenderProcesses.at(m_CurrentRenderProcessIndex)->GetCommandBuffer(); }
 	VkSemaphore		GetCurrentDrawableSemaphore() const { return m_RenderProcesses.at(m_CurrentRenderProcessIndex)->GetDrawableSemaphore(); }
@@ -34,6 +34,8 @@ private:
 	const VulkanDevice* m_Device{ nullptr };
 	const Headset*		m_Headset{ nullptr };
 
+	size_t				  m_IndexOffset{ 0u };
+	size_t				  m_CurrentRenderProcessIndex{ 0u };
 	VkCommandPool		  m_CommandPool{ nullptr };
 	VkDescriptorPool	  m_DescriptorPool{ nullptr };
 	VkDescriptorSetLayout m_DescriptorSetLayout{ nullptr };
@@ -41,16 +43,13 @@ private:
 	std::vector<VulkanRenderSystem*> m_RenderProcesses;
 	VkPipelineLayout				 m_PipelineLayout{ nullptr };
 	DataBuffer*						 m_VertexIndexBuffer{ nullptr };
-
-	// VulkanPipeline *m_GridPipeline{ nullptr }, *m_DiffusePipeline{ nullptr }, *m_2DPipeline{ nullptr };
-	std::vector<VulkanPipeline*> m_Pipelines;
+	std::vector<VulkanPipeline*>	 m_Pipelines;
 
 	std::vector<GameObject*> m_GameObjects;
 	std::vector<Material*>	 m_Materials;
 
-	size_t m_IndexOffset{ 0u };
-	size_t m_CurrentRenderProcessIndex{ 0u };
-
+	void			CreateDescriptors(const VkDevice& vkDevice);
+	void			CreatePipelines(const VkDevice& vkDevice, const VulkanDevice* device, const std::vector<Material*>& materials);
 	void			CreateVertexIndexBuffer(const MeshData* meshData, const VulkanDevice* m_Device);
 	void			DrawModels(VulkanRenderSystem* renderProcess, const VkCommandBuffer& commandBuffer);
 	void			UpdateUniformBuffers(VulkanRenderSystem* renderProcess, const glm::mat4& cameraMatrix);

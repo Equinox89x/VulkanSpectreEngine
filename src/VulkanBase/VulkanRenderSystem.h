@@ -25,7 +25,6 @@ public:
 	struct StaticFragmentUniformData
 	{
 		float time;
-		//glm::vec3 lightDirection{ 1.0f, -1.0f, -1.0f };
 		float x;
 		float y;
 		float z;
@@ -49,4 +48,7 @@ private:
 	DataBuffer*			m_UniformBuffer{ nullptr };
 	void*				m_UniformBufferMemory{ nullptr };
 	VkDescriptorSet		m_DescriptorSet{ nullptr };
+
+	void InitUBO(const size_t& modelCount);
+	void CreateDescriptorWithBuffer(const VulkanDevice* device, const size_t& modelCount, const VkDescriptorPool& descriptorPool, VkDescriptorSetLayout& descriptorSetLayout, const VkDevice& vkDevice);
 };

@@ -26,6 +26,17 @@ VulkanRenderer::VulkanRenderer(const VulkanDevice* device, const Headset* headse
 		utils::ThrowError(EError::GenericVulkan);
 	}
 
+	CreateDescriptors(vkDevice);
+
+	CreatePipelines(vkDevice, device, materials);
+
+	CreateVertexIndexBuffer(meshData, m_Device);
+
+	m_IndexOffset = meshData->GetIndexOffset();
+}
+
+void VulkanRenderer::CreateDescriptors(const VkDevice& vkDevice)
+{
 	// Create a descriptor pool
 	std::array<VkDescriptorPoolSize, 2u> descriptorPoolSizes;
 
@@ -72,7 +83,10 @@ VulkanRenderer::VulkanRenderer(const VulkanDevice* device, const Headset* headse
 	{
 		utils::ThrowError(EError::GenericVulkan);
 	}
+}
 
+void VulkanRenderer::CreatePipelines(const VkDevice& vkDevice, const VulkanDevice* device, const std::vector<Material*>& materials)
+{
 	// Create a pipeline layout
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pipelineLayoutCreateInfo.pSetLayouts = &m_DescriptorSetLayout;
@@ -120,11 +134,6 @@ VulkanRenderer::VulkanRenderer(const VulkanDevice* device, const Headset* headse
 		m_Pipelines.emplace_back(new VulkanPipeline(m_Device, m_PipelineLayout, m_Headset->GetVkRenderPass(), materials[i]->vertShaderName, materials[i]->fragShaderName, { vertexInputBindingDescription }, { vertexInputAttributePosition, vertexInputAttributeNormal, vertexInputAttributeColor }, materials[i]->pipelineData));
 		materials[i]->pipeline = m_Pipelines[m_Pipelines.size() - 1];
 	}
-
-	// Create a vertex index buffer
-	CreateVertexIndexBuffer(meshData, m_Device);
-
-	m_IndexOffset = meshData->GetIndexOffset();
 }
 
 VulkanRenderer::~VulkanRenderer()
@@ -293,7 +302,7 @@ VulkanPipeline* VulkanRenderer::FindExistingPipeline(const std::string& vertShad
 	return nullptr;
 }
 
-void VulkanRenderer::submit(bool useSemaphores) const
+void VulkanRenderer::Submit(bool useSemaphores) const
 {
 	const VulkanRenderSystem* renderProcess = m_RenderProcesses.at(m_CurrentRenderProcessIndex);
 	const VkCommandBuffer	  commandBuffer = renderProcess->GetCommandBuffer();

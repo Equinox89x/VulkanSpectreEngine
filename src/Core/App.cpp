@@ -108,6 +108,7 @@ int App::Run()
 		}
 		else if (frameResult == Headset::BeginFrameResult::RenderFully)
 		{
+			// Sync
 			if (!controllers.Sync())
 			{
 				return EXIT_FAILURE;
@@ -155,7 +156,7 @@ int App::PresentImage(VulkanWindow& window, const uint32_t& swapchainImageIndex,
 
 	// Present
 	bool windowIsVisible = (windowResult == VulkanWindow::RenderResult::Visible);
-	renderer.submit(windowIsVisible);
+	renderer.Submit(windowIsVisible);
 
 	if (windowIsVisible)
 	{

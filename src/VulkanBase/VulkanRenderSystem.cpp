@@ -9,18 +9,7 @@
 VulkanRenderSystem::VulkanRenderSystem(const VulkanDevice* device, VkCommandPool commandPool, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, size_t modelCount) : m_Device(device)
 {
 	// Initialize the uniform buffer data
-	dynamicVertexUniformData.resize(modelCount);
-	for (size_t modelIndex = 0u; modelIndex < modelCount; ++modelIndex)
-	{
-		dynamicVertexUniformData.at(modelIndex).worldMatrix = glm::mat4(1.0f);
-	}
-
-	for (glm::mat4& viewProjectionMatrix : staticVertexUniformData.viewProjectionMatrices)
-	{
-		viewProjectionMatrix = glm::mat4(1.0f);
-	}
-
-	staticFragmentUniformData.time = 0.0f;
+	InitUBO(modelCount);
 
 	const VkDevice vkDevice{ device->GetVkDevice() };
 
@@ -54,6 +43,27 @@ VulkanRenderSystem::VulkanRenderSystem(const VulkanDevice* device, VkCommandPool
 		utils::ThrowError(EError::GenericVulkan);
 	}
 
+	CreateDescriptorWithBuffer(device, modelCount, descriptorPool, descriptorSetLayout, vkDevice);
+}
+
+void VulkanRenderSystem::InitUBO(const size_t& modelCount)
+{
+	dynamicVertexUniformData.resize(modelCount);
+	for (size_t modelIndex = 0u; modelIndex < modelCount; ++modelIndex)
+	{
+		dynamicVertexUniformData.at(modelIndex).worldMatrix = glm::mat4(1.0f);
+	}
+
+	for (glm::mat4& viewProjectionMatrix : staticVertexUniformData.viewProjectionMatrices)
+	{
+		viewProjectionMatrix = glm::mat4(1.0f);
+	}
+
+	staticFragmentUniformData.time = 0.0f;
+}
+
+void VulkanRenderSystem::CreateDescriptorWithBuffer(const VulkanDevice* device, const size_t& modelCount, const VkDescriptorPool& descriptorPool, VkDescriptorSetLayout& descriptorSetLayout, const VkDevice& vkDevice)
+{
 	const VkDeviceSize uniformBufferOffsetAlignment = device->GetUniformBufferOffsetAlignment();
 
 	// Partition the uniform buffer data
