@@ -82,7 +82,7 @@ private:
 
 	bool BeginSession() const;
 	bool EndSession() const;
-	void CreateSwapChain(XrResult& result, const VkDevice& vkDevice, const VkExtent2D& eyeResolution);
+	void CreateSwapChain(const VkDevice& vkDevice, const VkExtent2D& eyeResolution);
 	void CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, const VkDevice& vkDevice);
-	void VerifyColorFormatSupport(XrResult& result);
+	void VerifyColorFormatSupport();
 };

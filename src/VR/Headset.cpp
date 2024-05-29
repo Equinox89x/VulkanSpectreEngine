@@ -19,9 +19,9 @@ namespace
 Headset::Headset(const VulkanDevice* device) : m_Device(device)
 {
 	const VkDevice				vkDevice{ device->GetVkDevice() };
-	const VkSampleCountFlagBits m_MultisampleCount{ device->GetMultisampleCount() };
+	const VkSampleCountFlagBits multisampleCount{ device->GetMultisampleCount() };
 
-	CreateRenderPass(m_MultisampleCount, vkDevice);
+	CreateRenderPass(multisampleCount, vkDevice);
 
 	const XrInstance	   m_XrInstance{ device->GetXrInstance() };
 	const XrSystemId	   xrSystemId{ device->GetXrSystemId() };
@@ -86,8 +86,7 @@ Headset::Headset(const VulkanDevice* device) : m_Device(device)
 		eyePose.next = nullptr;
 	}
 
-	// Verify that the desired color format is supported
-	VerifyColorFormatSupport(result);
+	VerifyColorFormatSupport();
 
 	const VkExtent2D eyeResolution{ GetEyeResolution(0u) };
 
@@ -95,7 +94,7 @@ Headset::Headset(const VulkanDevice* device) : m_Device(device)
 	m_DepthBuffer = new ImageBuffer(device, eyeResolution, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, device->GetMultisampleCount(), VK_IMAGE_ASPECT_DEPTH_BIT, 2u);
 
 	// Create a swapchain and render targets
-	CreateSwapChain(result, vkDevice, eyeResolution);
+	CreateSwapChain(vkDevice, eyeResolution);
 
 	// Create the eye render infos
 	m_EyeRenderInfos.resize(m_EyeCount);
@@ -118,7 +117,8 @@ Headset::Headset(const VulkanDevice* device) : m_Device(device)
 	m_EyeProjectionMatrices.resize(m_EyeCount);
 }
 
-void Headset::CreateSwapChain(XrResult& result, const VkDevice& vkDevice, const VkExtent2D& eyeResolution)
+// Could be moved to utils
+void Headset::CreateSwapChain(const VkDevice& vkDevice, const VkExtent2D& eyeResolution)
 {
 
 	const XrViewConfigurationView& eyeImageInfo{ m_EyeImageInfos.at(0u) };
@@ -133,7 +133,7 @@ void Headset::CreateSwapChain(XrResult& result, const VkDevice& vkDevice, const 
 	swapchainCreateInfo.faceCount = 1u;
 	swapchainCreateInfo.mipCount = 1u;
 
-	result = xrCreateSwapchain(m_Session, &swapchainCreateInfo, &m_Swapchain);
+	XrResult result = xrCreateSwapchain(m_Session, &swapchainCreateInfo, &m_Swapchain);
 	if (XR_FAILED(result))
 	{
 		utils::ThrowError(EError::GenericOpenXR);
@@ -173,6 +173,7 @@ void Headset::CreateSwapChain(XrResult& result, const VkDevice& vkDevice, const 
 	}
 }
 
+// Could be moved to utils
 void Headset::CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, const VkDevice& vkDevice)
 {
 
@@ -248,11 +249,11 @@ void Headset::CreateRenderPass(const VkSampleCountFlagBits& m_MultisampleCount, 
 	}
 }
 
-void Headset::VerifyColorFormatSupport(XrResult& result)
+void Headset::VerifyColorFormatSupport()
 {
 
 	uint32_t formatCount{ 0u };
-	result = xrEnumerateSwapchainFormats(m_Session, 0u, &formatCount, nullptr);
+	XrResult result = xrEnumerateSwapchainFormats(m_Session, 0u, &formatCount, nullptr);
 	if (XR_FAILED(result))
 	{
 		utils::ThrowError(EError::GenericOpenXR);
