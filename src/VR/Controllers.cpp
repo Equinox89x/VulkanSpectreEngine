@@ -25,9 +25,15 @@ Controllers::Controllers(XrInstance instance, XrSession session) : m_Session(ses
 	m_ActionSetData.controllerPaths[(int)Spectre::ControllerHand::LEFT] = utils::StringToXrPath(instance, "/user/hand/left");
 	m_ActionSetData.controllerPaths[(int)Spectre::ControllerHand::RIGHT] = utils::StringToXrPath(instance, "/user/hand/right");
 
-	AddAction("Hand Pose", "handpose", XR_ACTION_TYPE_POSE_INPUT, &m_ActionSetData.aimPoseAction, Spectre::InputActions::MoveAction);
-	AddAction("Fly", "fly", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.selectClickAction, Spectre::InputActions::FlyAction);
-	// AddAction("Walk", "walk", XR_ACTION_TYPE_FLOAT_INPUT, actionSetData.thumbstickAction, Spectre::InputActions::WalkAction);
+	AddAction("handpose", "Hand Pose", XR_ACTION_TYPE_POSE_INPUT, &m_ActionSetData.aimPoseAction, Spectre::InputActions::MoveAction);
+	AddAction("grippose", "Grip Pose", XR_ACTION_TYPE_POSE_INPUT, &m_ActionSetData.gripPoseAction, Spectre::InputActions::MoveAction);
+	AddAction("trigger_v_action", "Trigger", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.triggerValueAction, Spectre::InputActions::TriggerAction);
+	AddAction("squeeze_v_action", "Squeeze", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.squeezeValueAction, Spectre::InputActions::SqueezeAction);
+	AddAction("grab_action", "Grab Action", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.grabAction, Spectre::InputActions::GrabAction);
+	AddAction("thumbstick_action", "Thumbstick Action", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.thumbstickAction, Spectre::InputActions::WalkAction); // ThumbstickAction
+	AddAction("menu_action", "Menu Action", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.menuClickAction, Spectre::InputActions::MenuAction);
+	AddAction("select_action", "Select Action", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.selectClickAction, Spectre::InputActions::FlyAction); // MenuAction
+	AddAction("vibrate_action", "Vibration Action", XR_ACTION_TYPE_VIBRATION_OUTPUT, &m_ActionSetData.vibrateAction, Spectre::InputActions::VibrationAction);
 
 	// Create actions
 	CreateActions();
@@ -35,19 +41,32 @@ Controllers::Controllers(XrInstance instance, XrSession session) : m_Session(ses
 	// Create spaces
 	m_Spaces.resize(Spectre::controllerCount);
 
+	//m_ActionSetData.controllerReferenceSpaces_aim.resize((int)Spectre::ControllerHand::COUNT);
+	//m_ActionSetData.controllerReferenceSpaces_grip.resize((int)Spectre::ControllerHand::COUNT);
+	/*for (size_t ci = 0u; ci < (int)Spectre::ControllerHand::COUNT; ci++)
+	{
+		XrActionSpaceCreateInfo actionSpaceInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
+		actionSpaceInfo.action = m_ActionSetData.aimPoseAction;
+		actionSpaceInfo.subactionPath = m_ActionSetData.controllerPaths[ci];
+		actionSpaceInfo.poseInActionSpace.orientation = { .x = 0, .y = 0, .z = 0, .w = 1.0 };
+		actionSpaceInfo.poseInActionSpace.position = { .x = 0, .y = 0, .z = 0 };
+
+		result = xrCreateActionSpace(session, &actionSpaceInfo, &m_ActionSetData.controllerReferenceSpaces_aim[ci]);
+		if (XR_FAILED(result))
+		{
+			utils::ThrowError(EError::GenericOpenXR);
+		}
+
+		actionSpaceInfo.action = m_ActionSetData.gripPoseAction;
+		result = xrCreateActionSpace(session, &actionSpaceInfo, &m_ActionSetData.controllerReferenceSpaces_grip[ci]);
+		if (XR_FAILED(result))
+		{
+			utils::ThrowError(EError::GenericOpenXR);
+		}
+	}*/
+
 	// Bind actions with paths
 	BindActions(instance);
-
-	// Attach the controller action set
-	XrSessionActionSetsAttachInfo sessionActionSetsAttachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
-	sessionActionSetsAttachInfo.countActionSets = 1u;
-	sessionActionSetsAttachInfo.actionSets = &m_ActionSetData.actionSet;
-
-	result = xrAttachSessionActionSets(session, &sessionActionSetsAttachInfo);
-	if (XR_FAILED(result))
-	{
-		utils::ThrowError(EError::GenericOpenXR);
-	}
 
 	m_Poses.resize(Spectre::controllerCount);
 	m_FlySpeeds.resize(Spectre::controllerCount);
@@ -72,8 +91,7 @@ void Controllers::BindActions(const XrInstance& instance)
 
 	std::array<XrPath, (int)Spectre::ControllerHand::COUNT> thumbstickPath;
 	std::array<XrPath, (int)Spectre::ControllerHand::COUNT> thumbstickClickPath;
-	std::array<XrPath, (int)Spectre::ControllerHand::COUNT> thumbstickXPath;
-	std::array<XrPath, (int)Spectre::ControllerHand::COUNT> thumbstickYPath;
+
 	std::array<XrPath, (int)Spectre::ControllerHand::COUNT> menuClickPath;
 	std::array<XrPath, (int)Spectre::ControllerHand::COUNT> selectClickPath;
 
@@ -109,11 +127,6 @@ void Controllers::BindActions(const XrInstance& instance)
 	xrStringToPath(instance, "/user/hand/left/input/thumbstick/click", &thumbstickClickPath[(int)Spectre::ControllerHand::LEFT]);
 	xrStringToPath(instance, "/user/hand/right/input/thumbstick/click", &thumbstickClickPath[(int)Spectre::ControllerHand::RIGHT]);
 
-	xrStringToPath(instance, "/user/hand/left/input/thumbstick/x", &thumbstickXPath[(int)Spectre::ControllerHand::LEFT]);
-	xrStringToPath(instance, "/user/hand/right/input/thumbstick/y", &thumbstickYPath[(int)Spectre::ControllerHand::RIGHT]);
-	xrStringToPath(instance, "/user/hand/left/input/thumbstick/x", &thumbstickXPath[(int)Spectre::ControllerHand::LEFT]);
-	xrStringToPath(instance, "/user/hand/right/input/thumbstick/y", &thumbstickYPath[(int)Spectre::ControllerHand::RIGHT]);
-
 	xrStringToPath(instance, "/user/hand/left/input/menu/click", &menuClickPath[(int)Spectre::ControllerHand::LEFT]);
 	xrStringToPath(instance, "/user/hand/right/input/menu/click", &menuClickPath[(int)Spectre::ControllerHand::RIGHT]);
 
@@ -132,21 +145,170 @@ void Controllers::BindActions(const XrInstance& instance)
 	xrStringToPath(instance, "/user/hand/left/output/haptic", &hapticPath[(int)Spectre::ControllerHand::LEFT]);
 	xrStringToPath(instance, "/user/hand/right/output/haptic", &hapticPath[(int)Spectre::ControllerHand::RIGHT]);
 
-	std::vector<XrActionSuggestedBinding> bindings = { { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::LEFT] },	// hand pose
-													   { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::RIGHT] }, // hand pose
-													   { m_ActionSetData.selectClickAction, selectClickPath[(int)Spectre::ControllerHand::LEFT] },
-													   { m_ActionSetData.selectClickAction, selectClickPath[(int)Spectre::ControllerHand::RIGHT] } };
 
 	// For other controller types (vive, oculus,....) we need a different interaction profile with different XrActionSuggestedBinding bindings
-	// To check which path we need go to: 
+	// To check which path we need go to:
 	// https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#semantic-path-interaction-profiles Chapter 6.4 - Interaction Profile Paths
-	// I have an Oculus Rift S (old models) and for my model the Oculus Touch interaction path doesn't work anymore so I'm limited to the simple controller.
-	XrInteractionProfileSuggestedBinding interactionProfileSuggestedBinding{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
-	interactionProfileSuggestedBinding.interactionProfile = utils::StringToXrPath(instance, "/interaction_profiles/khr/simple_controller");
-	interactionProfileSuggestedBinding.suggestedBindings = bindings.data();
-	interactionProfileSuggestedBinding.countSuggestedBindings = static_cast<uint32_t>(bindings.size());
 
-	XrResult result = xrSuggestInteractionProfileBindings(instance, &interactionProfileSuggestedBinding);
+	// Suggest bindings for KHR Simple.
+	XrPath	 khrSimpleInteractionProfilePath;
+	XrResult result{ xrStringToPath(instance, "/interaction_profiles/khr/simple_controller", &khrSimpleInteractionProfilePath) };
+
+	std::vector<XrActionSuggestedBinding> bindings{ { { m_ActionSetData.grabAction, selectClickPath[(int)Spectre::ControllerHand::LEFT] },
+													  { m_ActionSetData.grabAction, selectClickPath[(int)Spectre::ControllerHand::RIGHT] },
+													  { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::LEFT] },	 // hand pose
+													  { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::RIGHT] }, // hand pose
+													  { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::LEFT] },	 // hand pose
+													  { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::RIGHT] },	 // hand pose
+
+													  { m_ActionSetData.selectClickAction, selectClickPath[(int)Spectre::ControllerHand::LEFT] },
+													  { m_ActionSetData.selectClickAction, selectClickPath[(int)Spectre::ControllerHand::RIGHT] },
+													  { m_ActionSetData.menuClickAction, menuClickPath[(int)Spectre::ControllerHand::LEFT] },
+													  { m_ActionSetData.menuClickAction, menuClickPath[(int)Spectre::ControllerHand::RIGHT] },
+
+													  { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::LEFT] },
+													  { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::RIGHT] } } };
+
+	XrInteractionProfileSuggestedBinding suggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
+	suggestedBindings.interactionProfile = khrSimpleInteractionProfilePath;
+	suggestedBindings.suggestedBindings = bindings.data();
+	suggestedBindings.countSuggestedBindings = static_cast<uint32_t>(bindings.size());
+	result = xrSuggestInteractionProfileBindings(instance, &suggestedBindings);
+
+
+
+
+	// Suggest bindings for the Oculus Touch.
+	// https://docs.unity3d.com/Packages/com.unity.xr.openxr@1.6/manual/features/oculustouchcontrollerprofile.html
+	XrPath oculusTouchInteractionProfilePath;
+	result = xrStringToPath(instance, "/interaction_profiles/oculus/touch_controller", &oculusTouchInteractionProfilePath);
+
+	bindings = { { m_ActionSetData.grabAction, squeezeValuePath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.grabAction, squeezeValuePath[(int)Spectre::ControllerHand::RIGHT] },
+				 { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::LEFT] },	// hand pose
+				 { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::RIGHT] }, // hand pose
+				 { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::LEFT] },	// hand pose
+				 { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::RIGHT] },	// hand pose
+				 { m_ActionSetData.thumbstickAction, thumbstickPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.thumbstickAction, thumbstickPath[(int)Spectre::ControllerHand::RIGHT] },
+
+				 { m_ActionSetData.selectClickAction, aClickPath[(int)Spectre::ControllerHand::RIGHT] },
+				 // note: only on left side!
+				 { m_ActionSetData.menuClickAction, menuClickPath[(int)Spectre::ControllerHand::LEFT] },
+
+				 // Old oculus Rifts for some reason fail on this path, Comment if you're supporting old devices.
+				 { m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::RIGHT] },
+
+				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::RIGHT] } };
+
+	suggestedBindings.interactionProfile = oculusTouchInteractionProfilePath;
+	suggestedBindings.suggestedBindings = bindings.data();
+	suggestedBindings.countSuggestedBindings = static_cast<uint32_t>(bindings.size());
+	result = xrSuggestInteractionProfileBindings(instance, &suggestedBindings);
+
+
+
+
+	// Suggest bindings for the Vive Controller.
+	XrPath viveControllerInteractionProfilePath;
+	result = xrStringToPath(instance, "/interaction_profiles/htc/vive_controller", &viveControllerInteractionProfilePath);
+
+	bindings = { { m_ActionSetData.grabAction, triggerValuePath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.grabAction, triggerValuePath[(int)Spectre::ControllerHand::RIGHT] },
+				 { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::LEFT] },	// hand pose
+				 { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::RIGHT] }, // hand pose
+				 { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::LEFT] },	// hand pose
+				 { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::RIGHT] },	// hand pose
+
+				 { m_ActionSetData.menuClickAction, menuClickPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.menuClickAction, menuClickPath[(int)Spectre::ControllerHand::RIGHT] },
+
+				 //{m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::LEFT]},
+				 //{m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::RIGHT]},
+
+				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::RIGHT] } };
+	suggestedBindings.interactionProfile = viveControllerInteractionProfilePath;
+	suggestedBindings.suggestedBindings = bindings.data();
+	suggestedBindings.countSuggestedBindings = static_cast<uint32_t>(bindings.size());
+	result = xrSuggestInteractionProfileBindings(instance, &suggestedBindings);
+
+
+
+
+	// Suggest bindings for the Valve Index Controller.
+	XrPath valveIndexControllerInteractionProfilePath;
+	result = xrStringToPath(instance, "/interaction_profiles/valve/index_controller", &valveIndexControllerInteractionProfilePath);
+
+	bindings = { { m_ActionSetData.grabAction, squeezeForcePath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.grabAction, squeezeForcePath[(int)Spectre::ControllerHand::RIGHT] },
+				 { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::LEFT] },	// hand pose
+				 { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::RIGHT] }, // hand pose
+				 { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::LEFT] },	// hand pose
+				 { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::RIGHT] },	// hand pose
+				 { m_ActionSetData.thumbstickAction, thumbstickPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.thumbstickAction, thumbstickPath[(int)Spectre::ControllerHand::RIGHT] },
+				 { m_ActionSetData.selectClickAction, aClickPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.selectClickAction, aClickPath[(int)Spectre::ControllerHand::RIGHT] },
+
+				 { m_ActionSetData.menuClickAction, bClickPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.menuClickAction, bClickPath[(int)Spectre::ControllerHand::RIGHT] },
+
+				 //{m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::LEFT]},
+				 //{m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::RIGHT]},
+
+				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::RIGHT] } };
+
+	suggestedBindings.interactionProfile = valveIndexControllerInteractionProfilePath;
+	suggestedBindings.suggestedBindings = bindings.data();
+	suggestedBindings.countSuggestedBindings = static_cast<uint32_t>(bindings.size());
+	result = xrSuggestInteractionProfileBindings(instance, &suggestedBindings);
+
+
+
+
+	// Suggest bindings for the Microsoft Mixed Reality Motion Controller.
+	XrPath microsoftMixedRealityInteractionProfilePath;
+	result = xrStringToPath(instance, "/interaction_profiles/microsoft/motion_controller", &microsoftMixedRealityInteractionProfilePath);
+
+	bindings = { { m_ActionSetData.grabAction, squeezeClickPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.grabAction, squeezeClickPath[(int)Spectre::ControllerHand::RIGHT] },
+				 { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::LEFT] },	// hand pose
+				 { m_ActionSetData.gripPoseAction, gripPosePath[(int)Spectre::ControllerHand::RIGHT] }, // hand pose
+				 { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::LEFT] },	// hand pose
+				 { m_ActionSetData.aimPoseAction, aimPosePath[(int)Spectre::ControllerHand::RIGHT] },	// hand pose
+				 { m_ActionSetData.thumbstickAction, thumbstickPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.thumbstickAction, thumbstickPath[(int)Spectre::ControllerHand::RIGHT] },
+
+				 { m_ActionSetData.selectClickAction, menuClickPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.selectClickAction, menuClickPath[(int)Spectre::ControllerHand::RIGHT] },
+
+				 { m_ActionSetData.menuClickAction, menuClickPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.menuClickAction, menuClickPath[(int)Spectre::ControllerHand::RIGHT] },
+
+				 //{m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::LEFT]},
+				 //{m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::RIGHT]},
+
+				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::LEFT] },
+				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::RIGHT] } };
+
+	suggestedBindings.interactionProfile = microsoftMixedRealityInteractionProfilePath;
+	suggestedBindings.suggestedBindings = bindings.data();
+	suggestedBindings.countSuggestedBindings = static_cast<uint32_t>(bindings.size());
+	result = xrSuggestInteractionProfileBindings(instance, &suggestedBindings);
+
+
+
+
+	// Attach the controller action set
+	XrSessionActionSetsAttachInfo sessionActionSetsAttachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
+	sessionActionSetsAttachInfo.countActionSets = 1u;
+	sessionActionSetsAttachInfo.actionSets = &m_ActionSetData.actionSet;
+
+	result = xrAttachSessionActionSets(m_Session, &sessionActionSetsAttachInfo);
 	if (XR_FAILED(result))
 	{
 		utils::ThrowError(EError::GenericOpenXR);
@@ -222,4 +384,4 @@ bool Controllers::Sync()
 
 size_t Controllers::GetNumberOfController() { return Spectre::controllerCount; }
 
-void Controllers::AddAction(std::string DisplayName, std::string actionName, XrActionType type, XrAction* action, Spectre::InputActions inputAction) { m_Actions.emplace(std::pair<std::string, std::unique_ptr<ActionDefinition>>{ DisplayName, std::make_unique<ActionDefinition>(actionName, DisplayName, type, action, inputAction) }); }
+void Controllers::AddAction(std::string actionName, std::string displayName, XrActionType type, XrAction* action, Spectre::InputActions inputAction) { m_Actions.emplace(std::pair<std::string, std::unique_ptr<ActionDefinition>>{ displayName, std::make_unique<ActionDefinition>(actionName, displayName, type, action, inputAction) }); }

@@ -41,8 +41,8 @@ VulkanWindow::VulkanWindow(const VulkanDevice* device) : m_Device(device)
 
 #ifdef DEBUG
 	// Create a quarter-sized window in debug mode instead
-	width /= 2;
-	height /= 2;
+	width /= 1.1f;
+	height /= 1.1f;
 	monitor = nullptr;
 #endif
 

@@ -59,7 +59,14 @@ namespace Spectre
 	{
 		MoveAction,
 		FlyAction,
-		WalkAction
+		WalkAction,
+		TriggerAction, 
+		SqueezeAction, 
+		GrabAction, 
+		ThumbstickAction, 
+		MenuAction, 
+		SelectAction, 
+		VibrationAction
 	};
 
 	struct ActionStateData
@@ -148,7 +155,7 @@ private:
 
 	std::map<std::string, std::unique_ptr<ActionDefinition>> m_Actions{};
 
-	void AddAction(std::string DisplayName, std::string actionName, XrActionType type, XrAction* action, Spectre::InputActions inputAction);
+	void AddAction(std::string actionName, std::string displayName, XrActionType type, XrAction* action, Spectre::InputActions inputAction);
 	void BindActions(const XrInstance& instance);
 	void RegisterInputs();
 	void CreateActions();

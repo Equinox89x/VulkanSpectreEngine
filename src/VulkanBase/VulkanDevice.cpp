@@ -250,7 +250,8 @@ void VulkanDevice::CreateXRInstance(std::vector<XrExtensionProperties>& supporte
 	memcpy(applicationInfo.applicationName, Spectre::applicationName.data(), Spectre::applicationName.length() + 1u);
 	memcpy(applicationInfo.engineName, Spectre::engineName.data(), Spectre::engineName.length() + 1u);
 
-	std::vector<const char*> extensions{ XR_KHR_VULKAN_ENABLE_EXTENSION_NAME };
+	// https://github.khronos.org/OpenXR-Inventory/extension_support.html#meta_pc
+	std::vector<const char*> extensions{ XR_KHR_VULKAN_ENABLE_EXTENSION_NAME, "XR_META_touch_controller_plus", "XR_KHR_vulkan_enable2" };
 
 	// Check that all OpenXR instance extensions are supported
 	for (const char* extension : extensions)

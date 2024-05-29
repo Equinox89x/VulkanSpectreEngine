@@ -74,11 +74,25 @@ void FlyAction::Update(size_t controllerIndex, Headset* headset, const XrPath& p
 
 void WalkAction::Update(size_t controllerIndex, Headset* headset, const XrPath& path)
 {
+	float deltaTime{ Timer::GetInstance().GetDeltaTime() };
+
 	XrActionStateFloat walkHorizontalState{ XR_TYPE_ACTION_STATE_FLOAT };
 	utils::UpdateActionStateFloat(m_Controller->GetSession(), *m_Action, path, walkHorizontalState);
 
 	if (walkHorizontalState.isActive)
 	{
 		m_Controller->GetFlySpeeds().at(controllerIndex) = walkHorizontalState.currentState;
+	}
+
+	for (size_t controllerIndex = 0u; controllerIndex < 2u; ++controllerIndex)
+	{
+		const float flySpeed{ m_Controller->GetFlySpeed(controllerIndex) };
+		if (flySpeed > 0.0f)
+		{
+			const glm::vec3 forward{ glm::normalize(m_Controller->GetPose(controllerIndex)[2]) };
+			// headset->worldMatrix = glm::translate(headset->worldMatrix, forward * flySpeed * flySpeedMultiplier * deltaTime);
+			headset->cameraMatrix = glm::translate(headset->cameraMatrix, forward * flySpeed * flySpeedMultiplier * deltaTime);
+			headset->AddToViewerPosition(forward * flySpeed * flySpeedMultiplier * deltaTime);
+		}
 	}
 }
