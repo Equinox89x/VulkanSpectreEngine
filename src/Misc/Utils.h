@@ -53,7 +53,9 @@ namespace utils
 	glm::mat4 ToMatrix(const XrPosef& pose);
 	glm::mat4 CreateProjectionMatrix(XrFovf fov, float nearClip, float farClip);
 
-	bool UpdateActionStatePose(XrSession m_Session, XrAction action, XrPath path, XrActionStatePose& state);
-	bool UpdateActionStateFloat(XrSession m_Session, XrAction action, XrPath path, XrActionStateFloat& state);
+	bool UpdateActionStatePose(XrSession session, XrAction action, XrPath path, XrActionStatePose& outState);
+	bool UpdateActionStateFloat(XrSession session, XrAction action, XrPath path, XrActionStateFloat& outState);	
+	bool UpdateActionStateVector2(XrSession session, XrAction action, XrPath path, XrActionStateVector2f& outState);
+	bool UpdateActionStateBoolean(XrSession session, XrAction action, XrPath path, XrActionStateBoolean& outState);
 
 } // namespace utils

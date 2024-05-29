@@ -214,13 +214,13 @@ glm::mat4 utils::CreateProjectionMatrix(XrFovf fov, float nearClip, float farCli
 	return projectionMatrix;
 }
 
-bool utils::UpdateActionStatePose(XrSession session, XrAction action, XrPath path, XrActionStatePose& state)
+bool utils::UpdateActionStatePose(XrSession session, XrAction action, XrPath path, XrActionStatePose& outState)
 {
 	XrActionStateGetInfo actionStateGetInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
 	actionStateGetInfo.action = action;
 	actionStateGetInfo.subactionPath = path;
 
-	const XrResult result = xrGetActionStatePose(session, &actionStateGetInfo, &state);
+	const XrResult result = xrGetActionStatePose(session, &actionStateGetInfo, &outState);
 	if (XR_FAILED(result))
 	{
 		return false;
@@ -229,13 +229,43 @@ bool utils::UpdateActionStatePose(XrSession session, XrAction action, XrPath pat
 	return true;
 }
 
-bool utils::UpdateActionStateFloat(XrSession session, XrAction action, XrPath path, XrActionStateFloat& state)
+bool utils::UpdateActionStateFloat(XrSession session, XrAction action, XrPath path, XrActionStateFloat& outState)
 {
 	XrActionStateGetInfo actionStateGetInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
 	actionStateGetInfo.action = action;
 	actionStateGetInfo.subactionPath = path;
 
-	const XrResult result = xrGetActionStateFloat(session, &actionStateGetInfo, &state);
+	const XrResult result = xrGetActionStateFloat(session, &actionStateGetInfo, &outState);
+	if (XR_FAILED(result))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool utils::UpdateActionStateVector2(XrSession session, XrAction action, XrPath path, XrActionStateVector2f& outState)
+{
+	XrActionStateGetInfo actionStateGetInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
+	actionStateGetInfo.action = action;
+	actionStateGetInfo.subactionPath = path;
+
+	const XrResult result = xrGetActionStateVector2f(session, &actionStateGetInfo, &outState);
+	if (XR_FAILED(result))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool utils::UpdateActionStateBoolean(XrSession session, XrAction action, XrPath path, XrActionStateBoolean& outState)
+{
+	XrActionStateGetInfo actionStateGetInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
+	actionStateGetInfo.action = action;
+	actionStateGetInfo.subactionPath = path;
+
+	const XrResult result = xrGetActionStateBoolean(session, &actionStateGetInfo, &outState);
 	if (XR_FAILED(result))
 	{
 		return false;

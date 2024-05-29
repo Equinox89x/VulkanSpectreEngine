@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "../Misc/Utils.h"
 
 namespace Spectre
 {
@@ -125,6 +126,11 @@ public:
 		XrActionType		  Type;
 		XrAction*			  Action;
 		Spectre::InputActions InputAction;
+
+		XrActionStateFloat FloatState;
+		XrActionStatePose PoseState;
+		XrActionStateBoolean BooleanState;
+		XrActionStateVector2f VectorState;
 	};
 
 	Controllers(){};
@@ -135,9 +141,11 @@ public:
 
 	glm::mat4 GetPose(size_t controllerIndex) const { return m_Poses.at(controllerIndex); }
 	float	  GetFlySpeed(size_t controllerIndex) const { return m_FlySpeeds.at(controllerIndex); }
+	float	  GetWalkSpeed(size_t controllerIndex) const { return m_WalkSpeeds.at(controllerIndex); }
 
 	std::vector<glm::mat4>& GetPoses() { return m_Poses; }
 	std::vector<float>&		GetFlySpeeds() { return m_FlySpeeds; }
+	std::vector<float>&		GetWalkSpeeds() { return m_WalkSpeeds; }
 
 	const std::vector<XrPath>& GetPaths() { return m_ActionSetData.controllerPaths; };
 	size_t					   GetNumberOfController();
@@ -151,6 +159,7 @@ private:
 	std::vector<XrSpace>	 m_Spaces;
 	std::vector<glm::mat4>	 m_Poses;
 	std::vector<float>		 m_FlySpeeds;
+	std::vector<float>		 m_WalkSpeeds;
 	Spectre::ActionStateData m_ActionSetData{};
 
 	std::map<std::string, std::unique_ptr<ActionDefinition>> m_Actions{};

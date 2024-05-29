@@ -115,8 +115,8 @@ void InputHandler::Update()
 		const XrPath& path{ paths.at(controllerIndex) };
 		for (auto inputAction : m_InputActions)
 		{
-			XrActionStateFloat state{ XR_TYPE_ACTION_STATE_FLOAT };
-			utils::UpdateActionStateFloat(m_Controllers->GetSession(), *inputAction->GetAction(), path, state);
+			//XrActionStateFloat state{ XR_TYPE_ACTION_STATE_FLOAT };
+			//utils::UpdateActionStateFloat(m_Controllers->GetSession(), *inputAction->GetAction(), path, state);
 			inputAction->Update(controllerIndex, m_Headset, path/*, state*/);
 		}
 	}

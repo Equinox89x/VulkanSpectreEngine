@@ -27,9 +27,9 @@ Controllers::Controllers(XrInstance instance, XrSession session) : m_Session(ses
 
 	AddAction("handpose", "Hand Pose", XR_ACTION_TYPE_POSE_INPUT, &m_ActionSetData.aimPoseAction, Spectre::InputActions::MoveAction);
 	AddAction("grippose", "Grip Pose", XR_ACTION_TYPE_POSE_INPUT, &m_ActionSetData.gripPoseAction, Spectre::InputActions::MoveAction);
-	AddAction("trigger_v_action", "Trigger", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.triggerValueAction, Spectre::InputActions::TriggerAction);
+	AddAction("trigger_v_action", "Trigger", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.triggerValueAction, Spectre::InputActions::FlyAction);
 	AddAction("squeeze_v_action", "Squeeze", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.squeezeValueAction, Spectre::InputActions::SqueezeAction);
-	AddAction("grab_action", "Grab Action", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.grabAction, Spectre::InputActions::GrabAction);
+	AddAction("grab_action", "Grab Action", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.grabAction, Spectre::InputActions::WalkAction);
 	AddAction("thumbstick_action", "Thumbstick Action", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.thumbstickAction, Spectre::InputActions::WalkAction); // ThumbstickAction
 	AddAction("menu_action", "Menu Action", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.menuClickAction, Spectre::InputActions::MenuAction);
 	AddAction("select_action", "Select Action", XR_ACTION_TYPE_FLOAT_INPUT, &m_ActionSetData.selectClickAction, Spectre::InputActions::FlyAction); // MenuAction
@@ -70,6 +70,7 @@ Controllers::Controllers(XrInstance instance, XrSession session) : m_Session(ses
 
 	m_Poses.resize(Spectre::controllerCount);
 	m_FlySpeeds.resize(Spectre::controllerCount);
+	m_WalkSpeeds.resize(Spectre::controllerCount);
 
 	RegisterInputs();
 }
@@ -197,8 +198,8 @@ void Controllers::BindActions(const XrInstance& instance)
 				 { m_ActionSetData.menuClickAction, menuClickPath[(int)Spectre::ControllerHand::LEFT] },
 
 				 // Old oculus Rifts for some reason fail on this path, Comment if you're supporting old devices.
-				 { m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::LEFT] },
-				 { m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::RIGHT] },
+				 //{ m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::LEFT] },
+				 //{ m_ActionSetData.triggerAction, triggerValuePath[(int)Spectre::ControllerHand::RIGHT] },
 
 				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::LEFT] },
 				 { m_ActionSetData.vibrateAction, hapticPath[(int)Spectre::ControllerHand::RIGHT] } };
@@ -323,13 +324,13 @@ void Controllers::RegisterInputs()
 		switch (action.second->InputAction)
 		{
 		case Spectre::InputActions::MoveAction:
-			InputHandler::GetInstance().AddAction(new MoveAction(this, action.second->Action));
+			InputHandler::GetInstance().AddAction(new MoveAction(this, action.second.get()));
 			break;
 		case Spectre::InputActions::FlyAction:
-			InputHandler::GetInstance().AddAction(new FlyAction(this, action.second->Action));
+			InputHandler::GetInstance().AddAction(new FlyAction(this, action.second.get()));
 			break;
 		case Spectre::InputActions::WalkAction:
-			InputHandler::GetInstance().AddAction(new WalkAction(this, action.second->Action));
+			InputHandler::GetInstance().AddAction(new WalkAction(this, action.second.get()));
 			break;
 		default:
 			break;

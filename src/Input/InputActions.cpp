@@ -10,7 +10,7 @@ void MoveAction::Init() {
 		const XrPath& path{ m_Controller->GetPaths().at(controllerIndex) };
 
 		XrActionSpaceCreateInfo actionSpaceCreateInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
-		actionSpaceCreateInfo.action = *m_Action;
+		actionSpaceCreateInfo.action = *m_Action->Action;
 		actionSpaceCreateInfo.poseInActionSpace = utils::MakeIdentityPose();
 		actionSpaceCreateInfo.subactionPath = path;
 
@@ -26,7 +26,7 @@ void MoveAction::Update(size_t controllerIndex, Headset* headset, const XrPath& 
 {
 	// Pose
 	XrActionStatePose poseState{ XR_TYPE_ACTION_STATE_POSE };
-	utils::UpdateActionStatePose(m_Controller->GetSession(), *m_Action, path, poseState);
+	utils::UpdateActionStatePose(m_Controller->GetSession(), *m_Action->Action, path, poseState);
 
 	if (poseState.isActive)
 	{
@@ -52,7 +52,7 @@ void FlyAction::Update(size_t controllerIndex, Headset* headset, const XrPath& p
 
 	// Fly speed
 	XrActionStateFloat flySpeedState{ XR_TYPE_ACTION_STATE_FLOAT };
-	utils::UpdateActionStateFloat(m_Controller->GetSession(), *m_Action, path, flySpeedState);
+	utils::UpdateActionStateFloat(m_Controller->GetSession(), *m_Action->Action, path, flySpeedState);
 
 	if (flySpeedState.isActive)
 	{
@@ -77,16 +77,16 @@ void WalkAction::Update(size_t controllerIndex, Headset* headset, const XrPath& 
 	float deltaTime{ Timer::GetInstance().GetDeltaTime() };
 
 	XrActionStateFloat walkHorizontalState{ XR_TYPE_ACTION_STATE_FLOAT };
-	utils::UpdateActionStateFloat(m_Controller->GetSession(), *m_Action, path, walkHorizontalState);
+	utils::UpdateActionStateFloat(m_Controller->GetSession(), *m_Action->Action, path, walkHorizontalState);
 
 	if (walkHorizontalState.isActive)
 	{
-		m_Controller->GetFlySpeeds().at(controllerIndex) = walkHorizontalState.currentState;
+		m_Controller->GetWalkSpeeds().at(controllerIndex) = walkHorizontalState.currentState;
 	}
 
 	for (size_t controllerIndex = 0u; controllerIndex < 2u; ++controllerIndex)
 	{
-		const float flySpeed{ m_Controller->GetFlySpeed(controllerIndex) };
+		const float flySpeed{ m_Controller->GetWalkSpeed(controllerIndex) };
 		if (flySpeed > 0.0f)
 		{
 			const glm::vec3 forward{ glm::normalize(m_Controller->GetPose(controllerIndex)[2]) };

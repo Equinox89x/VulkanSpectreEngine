@@ -28,21 +28,21 @@ public:
 class InputAction : Command
 {
 public:
-	InputAction(Controllers* controller, XrAction* action) : m_Controller{ controller }, m_Action{ action } {};
+	InputAction(Controllers* controller, Controllers::ActionDefinition* action) : m_Controller{ controller }, m_Action{ action } {};
 
 	void	  Update(size_t controllerIndex, Headset* headset, const XrPath& path/*, const XrActionStateFloat& state*/) override = 0;
 	void	  Init() override = 0;
-	XrAction* GetAction() { return m_Action; }
+	XrAction* GetAction() { return m_Action->Action; }
 
 protected:
-	XrAction*	 m_Action{ nullptr };
+	Controllers::ActionDefinition* m_Action{ nullptr };
 	Controllers* m_Controller{ nullptr };
 };
 
 class MoveAction : public InputAction
 {
 public:
-	MoveAction(Controllers* controller, XrAction* action) : InputAction(controller, action){};
+	MoveAction(Controllers* controller, Controllers::ActionDefinition* action) : InputAction(controller, action){};
 	void	  Init() override;
 	void	  Update(size_t controllerIndex, Headset* headset, const XrPath& path /*, const XrActionStateFloat& state*/) override;
 //	XrAction* GetAction() override { return m_Action; }
@@ -55,7 +55,7 @@ public:
 class FlyAction : public InputAction
 {
 public:
-	FlyAction(Controllers* controller, XrAction* action) : InputAction(controller, action){};
+	FlyAction(Controllers* controller, Controllers::ActionDefinition* action) : InputAction(controller, action){};
 	void	  Init() override {}
 	void	  Update(size_t controllerIndex, Headset* headset, const XrPath& path /*, const XrActionStateFloat& state*/) override;
 //	XrAction* GetAction() override { return m_Action; }
@@ -68,7 +68,7 @@ public:
 class WalkAction : public InputAction
 {
 public:
-	WalkAction(Controllers* controller, XrAction* action) : InputAction(controller, action){};
+	WalkAction(Controllers* controller, Controllers::ActionDefinition* action) : InputAction(controller, action){};
 	void Init() override {}
 	void Update(size_t controllerIndex, Headset* headset, const XrPath& path/*, const XrActionStateFloat& state*/) override;
 //	XrAction* GetAction() override { return m_Action; }
