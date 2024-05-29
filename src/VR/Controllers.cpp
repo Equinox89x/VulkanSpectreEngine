@@ -57,7 +57,6 @@ Controllers::Controllers(XrInstance instance, XrSession session) : m_Session(ses
 
 void Controllers::BindActions(const XrInstance& instance)
 {
-	//These are all supported paths of an controller. You just have to change the XrActionSuggestedBinding vector with the right ones per controller.
 	// hand pose that allows applications to point in the world using the input source, according to the platform’s conventions for aiming with that kind of source.
 	std::array<XrPath, (int)Spectre::ControllerHand::COUNT> aimPosePath;
 	// hand pose that allows applications to reliably render a virtual object held in the user’s hand, whether it is tracked directly or by a motion controller.
@@ -138,6 +137,10 @@ void Controllers::BindActions(const XrInstance& instance)
 													   { m_ActionSetData.selectClickAction, selectClickPath[(int)Spectre::ControllerHand::LEFT] },
 													   { m_ActionSetData.selectClickAction, selectClickPath[(int)Spectre::ControllerHand::RIGHT] } };
 
+	// For other controller types (vive, oculus,....) we need a different interaction profile with different XrActionSuggestedBinding bindings
+	// To check which path we need go to: 
+	// https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#semantic-path-interaction-profiles Chapter 6.4 - Interaction Profile Paths
+	// I have an Oculus Rift S (old models) and for my model the Oculus Touch interaction path doesn't work anymore so I'm limited to the simple controller.
 	XrInteractionProfileSuggestedBinding interactionProfileSuggestedBinding{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
 	interactionProfileSuggestedBinding.interactionProfile = utils::StringToXrPath(instance, "/interaction_profiles/khr/simple_controller");
 	interactionProfileSuggestedBinding.suggestedBindings = bindings.data();
